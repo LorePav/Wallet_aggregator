@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+requests
+yfinance
+python-dotenv
+apscheduler
+google-auth
+google-api-python-client

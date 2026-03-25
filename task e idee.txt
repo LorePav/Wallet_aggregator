@@ -1,0 +1,15 @@
+Piano di Pubblicazione dell'App
+ Fase 1: Protezione con Password Globale
+ Aggiungere una schermata di inserimento password su React.
+ Proteggere le API del backend (Python) in modo che accettino solo la password corretta.
+ Fase 2: Salvataggio su GitHub
+ Creare un repository su GitHub.
+ Caricare tutto il codice attuale al sicuro.
+ Fase 3: Database Cloud (Supabase)
+ Creare un database online gratuito (es. Supabase).
+ Adattare la configurazione di Python per usare il nuovo database al posto del file 
+portfolio.db
+.
+ Fase 4: Pubblicazione (Deploy)
+ Mettere online il backend (es. su Render.com).
+ Mettere online il frontend (su Vercel) e farlo comunicare con il backend.

@@ -1,0 +1,48 @@
+A - Gestione della Liquidità: Creare un pannello nella Dashboard per inserire, ricaricare e scalare la liquidità "libera" depositata sui vari broker (es. Bybit, Scalable Capital), per farla rientrare nel totale del portafoglio.
+B - Performance Mensili / Grafici storici: Creare una pagina statistica con bellissimi grafici a barre per vedere come è andato ogni mese (guadagni realizzati, dividendi staccati in quel mese) e magari fare un confronto con le performance dell'indice S&P 500.
+C - Modifica / Eliminazione Transazioni: Aggiungere dei comodi tastini nella schermata per eliminare ("X") o modificare una vecchia transazione che hai in cronologia, nel caso commettessi un errore di digitazione.
+Quale di queste vie esploriamo per prima? Ovviamente, se hai altre idee, questo è il momento perfetto! 🚀
+
+
+
+Alcune idee che mi vengono in mente:
+
+L'Andamento Storico Globale: Ti avevo promesso di far funzionare bene l'Area Chart principale per vedere se nel tempo il tuo patrimonio totale sta salendo o scendendo.
+Dividendi e Rese: Aggiungere una tracciatura specifica per chi stacca dividendi o cedole, per calcolare la rendita passiva.
+Esportazione in Google Sheets: L'idea originale di inviare una copia "di backup" formattata al tuo Google Sheet.
+
+
+IDEE STRUTTURA:
+💡 Brainstorming: Menu di Navigazione
+Ecco le idee, dal più semplice al più ambizioso:
+
+Opzione A — Sidebar verticale fissa ⭐ (consigliata)
+Una sidebar a sinistra sempre visibile con icone + label per ogni "pagina":
+
+Voce	Contenuto
+📊 Dashboard	KPI cards + grafici torta
+📈 Andamento	Area chart storico + benchmark
+💼 Portafoglio	Tabella asset con sparklines
+🔄 Transazioni	Tabella movimenti
+🏦 Conti	Schede per ogni broker/conto
+Pro: navigazione immediata, non devi scrollare, facile da espandere
+Contro: occupa spazio orizzontale (ma collassabile)
+
+Opzione B — Tab bar orizzontale in alto
+Una barra tipo tab browser sotto l'header, stile finanza moderna (come Degiro, Trading212):
+
+[Dashboard]  [Storico]  [Asset]  [Transazioni]  [Conti]
+Pro: molto pulita, non toglie spazio
+Contro: meno visibile se le voci sono tante
+
+Opzione C — Bottom navigation (stile mobile-first)
+Navbar fissa in basso, ottima se usi l'app su schermo piccolo o laptop.
+
+Pro: ergonomica, moderna
+Contro: poco comune su desktop
+
+Considerazioni pratiche:
+L'app è una SPA senza router — possiamo implementare la navigazione con un semplice stato activePage in React (senza react-router, più leggero)
+Le sezioni collassabili attuali (sections.chart, sections.pies ecc.) diventerebbero "pagine" separate → interfaccia molto più pulita
+Il modal di aggiunta transazione resta un overlay globale
+Cosa preferisci? Sidebar, tab bar, o bottom nav? E vuoi che le "pagine" siano proprio quelle che ho elencato, o hai altre sezioni in mente?
