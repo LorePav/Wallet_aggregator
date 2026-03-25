@@ -26,7 +26,7 @@ const Layout = () => {
     const timeoutId = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`http://localhost:8000/api/search-tickers?q=${encodeURIComponent(searchTerm)}`);
+        const res = await fetch(`https://wallet-aggregator.onrender.com/api/search-tickers?q=${encodeURIComponent(searchTerm)}`);
         if (res.ok) {
           const data = await res.json();
           setSearchResults(data);

@@ -11,7 +11,7 @@ const Login = ({ onLoginSuccess }) => {
     e.preventDefault();
     try {
       // Test the password against the backend
-      await axios.get('http://localhost:8000/', {
+      await axios.get('https://wallet-aggregator.onrender.com/', {
         headers: {
           'x-api-password': password
         }

@@ -306,7 +306,7 @@ export const PortfolioProvider = ({ children }) => {
 
   const fetchSnapshots = async () => {
     try {
-      const res = await axios.get('http://localhost:8000/api/snapshots');
+      const res = await axios.get('https://wallet-aggregator.onrender.com/api/snapshots');
       setSnapshots(res.data);
     } catch (err) {
       console.error("Errore fetch snapshots:", err);
@@ -315,7 +315,7 @@ export const PortfolioProvider = ({ children }) => {
 
   const fetchBenchmark = async () => {
     try {
-      const res = await axios.get('http://localhost:8000/api/benchmark');
+      const res = await axios.get('https://wallet-aggregator.onrender.com/api/benchmark');
       setBenchmarkData(res.data);
     } catch (err) {
       console.error("Errore fetch benchmark:", err);
@@ -324,7 +324,7 @@ export const PortfolioProvider = ({ children }) => {
 
   const fetchLiquidity = async () => {
     try {
-      const res = await axios.get('http://localhost:8000/api/liquidity');
+      const res = await axios.get('https://wallet-aggregator.onrender.com/api/liquidity');
       setLiquidity(res.data);
     } catch (err) {
       console.error("Errore fetch liquidity:", err);
@@ -333,7 +333,7 @@ export const PortfolioProvider = ({ children }) => {
 
   const fetchFxRates = async () => {
     try {
-      const res = await axios.get('http://localhost:8000/api/fx_rates');
+      const res = await axios.get('https://wallet-aggregator.onrender.com/api/fx_rates');
       setFxRates(res.data);
     } catch (err) {
       console.error("Errore fetch fx rates:", err);
@@ -342,7 +342,7 @@ export const PortfolioProvider = ({ children }) => {
 
   const fetchTransactions = async () => {
     try {
-      const res = await axios.get('http://localhost:8000/api/transactions');
+      const res = await axios.get('https://wallet-aggregator.onrender.com/api/transactions');
       // Ordine Decrescente per Data
       const sorted = res.data.sort((a, b) => new Date(b.date) - new Date(a.date));
       setTransactions(sorted);
@@ -355,7 +355,7 @@ export const PortfolioProvider = ({ children }) => {
     setLoading(true);
     try {
       // Quando chiedo il portfolio il backend scatena il salvataggio dello snapshot
-      const res = await axios.get('http://localhost:8000/api/portfolio');
+      const res = await axios.get('https://wallet-aggregator.onrender.com/api/portfolio');
       setPortfolio(res.data);
       setLoading(false);
       setLastUpdated(new Date());
@@ -375,7 +375,7 @@ export const PortfolioProvider = ({ children }) => {
 
   const fetchSparkline = async (symbol) => {
     try {
-      const res = await axios.get(`http://localhost:8000/api/asset-history/${symbol}?period=7d`);
+      const res = await axios.get(`https://wallet-aggregator.onrender.com/api/asset-history/${symbol}?period=7d`);
       setSparklineData(prev => ({ ...prev, [symbol]: res.data }));
     } catch (err) {
       // Ignora l'errore per singolo asset
@@ -384,7 +384,7 @@ export const PortfolioProvider = ({ children }) => {
 
   const fetchAssetHistory = async (symbol) => {
     try {
-      const res = await axios.get(`http://localhost:8000/api/asset-history/${symbol}?period=1y`);
+      const res = await axios.get(`https://wallet-aggregator.onrender.com/api/asset-history/${symbol}?period=1y`);
       setAssetHistory(res.data);
     } catch (err) {
       console.error("Errore fetch storico asset:", err);
@@ -469,7 +469,7 @@ export const PortfolioProvider = ({ children }) => {
       // 1. Assicuriamoci che l'asset esista (Solo se NON e' deposito/prelievo)
       if (formData.type !== 'Deposit' && formData.type !== 'Withdrawal') {
         try {
-          await axios.post('http://localhost:8000/api/assets', {
+          await axios.post('https://wallet-aggregator.onrender.com/api/assets', {
             symbol: formData.symbol.toUpperCase(),
             name: formData.name || formData.symbol.toUpperCase(),
             category: formData.category,
@@ -497,9 +497,9 @@ export const PortfolioProvider = ({ children }) => {
       };
 
       if (editingTxId) {
-        await axios.put(`http://localhost:8000/api/transactions/${editingTxId}`, txData);
+        await axios.put(`https://wallet-aggregator.onrender.com/api/transactions/${editingTxId}`, txData);
       } else {
-        await axios.post('http://localhost:8000/api/transactions', txData);
+        await axios.post('https://wallet-aggregator.onrender.com/api/transactions', txData);
       }
 
       setIsModalOpen(false);
@@ -545,7 +545,7 @@ export const PortfolioProvider = ({ children }) => {
   const handleDeleteTransaction = async (id) => {
     if (window.confirm("Sei sicuro di voler eliminare questa transazione?\nL'azione cancellerà il record in modo permanente e ricalcolerà il totale del portafoglio.")) {
       try {
-        await axios.delete(`http://localhost:8000/api/transactions/${id}`);
+        await axios.delete(`https://wallet-aggregator.onrender.com/api/transactions/${id}`);
         fetchPortfolio();
         fetchTransactions();
         fetchLiquidity(); // AGGIUNTO: Aggiorna la liquidità dopo l'eliminazione
@@ -559,7 +559,7 @@ export const PortfolioProvider = ({ children }) => {
   const handleResetPortfolio = async () => {
     if (window.confirm("ATTENZIONE! Vuoi davvero cancellare TUTTO il portafoglio? (Asset, Transazioni e Storico)\nQuesta azione è irreversibile!")) {
       try {
-        await axios.delete('http://localhost:8000/api/reset');
+        await axios.delete('https://wallet-aggregator.onrender.com/api/reset');
         setPortfolio([]);
         setTransactions([]);
         setLiquidity({});
