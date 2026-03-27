@@ -54,7 +54,7 @@ def get_live_prices(symbols: list[str]) -> dict[str, float]:
 
             if import_symbol == "TAOUSD":
                 import_symbol = "TAO22974-USD" # Caso speciale Bittensor su Yahoo
-            elif import_symbol.endswith("USD") and import_symbol != "USD":
+            elif import_symbol.endswith("USD") and import_symbol != "USD" and not import_symbol.endswith("-USD"):
                 # Convertiamo es: BTCUSD -> BTC-USD
                 import_symbol = import_symbol[:-3] + "-USD"
             elif import_symbol == "STLAM":
@@ -92,7 +92,7 @@ def get_historical_prices(sym: str, period: str = "1y") -> list[dict]:
 
     if import_symbol == "TAOUSD":
         import_symbol = "TAO22974-USD" # Caso speciale Bittensor su Yahoo
-    elif import_symbol.endswith("USD") and import_symbol != "USD":
+    elif import_symbol.endswith("USD") and import_symbol != "USD" and not import_symbol.endswith("-USD"):
         # Convertiamo es: BTCUSD -> BTC-USD
         import_symbol = import_symbol[:-3] + "-USD"
     elif import_symbol == "STLAM":

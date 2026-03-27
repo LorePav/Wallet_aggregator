@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
+import axios from 'axios';
 import Sidebar from './Sidebar';
 import { usePortfolioContext } from '../context/PortfolioContext';
 import GlobalModals from './GlobalModals';
@@ -26,10 +27,9 @@ const Layout = () => {
     const timeoutId = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`https://wallet-aggregator.onrender.com/api/search-tickers?q=${encodeURIComponent(searchTerm)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setSearchResults(data);
+        const res = await axios.get(`https://wallet-aggregator.onrender.com/api/search-tickers?q=${encodeURIComponent(searchTerm)}`);
+        if (res.data) {
+          setSearchResults(res.data);
           setShowDropdown(true);
         }
       } catch (err) {
