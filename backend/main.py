@@ -53,6 +53,16 @@ def read_transactions(skip: int = 0, limit: int = 1000, symbol: str = None, db: 
     if symbol:
         query = query.filter(models.Transaction.symbol == symbol)
     transactions = query.offset(skip).limit(limit).all()
+    
+    # Aggiungiamo dinamicamente la currency ad ogni transazione in uscita
+    assets = db.query(models.Asset).all()
+    asset_map = {a.symbol: a.currency for a in assets}
+    for t in transactions:
+        if t.type in ["Deposit", "Withdrawal"] and t.symbol in ["EUR", "USD", "GBP", "CHF", "JPY"]:
+            setattr(t, 'currency', t.symbol)
+        else:
+            setattr(t, 'currency', asset_map.get(t.symbol, "EUR"))
+            
     return transactions
 
 @app.post("/api/transactions", response_model=schemas.Transaction)

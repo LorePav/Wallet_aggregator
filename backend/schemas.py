@@ -28,6 +28,7 @@ class TransactionBase(BaseModel):
     total: float
     fees: Optional[float] = 0.0
     account: str
+    currency: Optional[str] = "EUR"
 
 class TransactionCreate(TransactionBase):
     pass

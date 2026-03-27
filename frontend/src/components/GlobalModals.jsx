@@ -13,7 +13,7 @@ const GlobalModals = () => {
     const convertedAssetHistory = React.useMemo(() => {
         if (!assetHistory || assetHistory.length === 0 || !selectedAsset) return [];
         const baseCur = selectedAsset.currency || 'EUR';
-        
+
         return assetHistory.map(point => {
             let convertedPrice = point.price;
             if (baseCur !== displayCurrency) {
@@ -143,39 +143,43 @@ const GlobalModals = () => {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {transactions.filter(tx => tx.symbol === selectedAsset.symbol).map(tx => (
-                                                <tr key={tx.id}>
-                                                    <td style={{ padding: '0.6rem' }}>{new Date(tx.date).toLocaleDateString('it-IT')}</td>
-                                                    <td style={{ padding: '0.6rem' }}>
-                                                        <span style={{ color: tx.type === 'Buy' ? 'var(--success)' : (tx.type === 'Sell' ? 'var(--danger)' : 'var(--accent)') }}>
-                                                            {tx.type}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ padding: '0.6rem' }}>{tx.quantity}</td>
-                                                    <td style={{ padding: '0.6rem' }}>€{(tx.price || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
-                                                    <td style={{ padding: '0.6rem' }}>€{(tx.total || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}</td>
-                                                    <td style={{ padding: '0.6rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                                        <button
-                                                            className="btn btn-outline"
-                                                            style={{ padding: '0.2rem 0.4rem', marginRight: '0.5rem', fontSize: '0.8rem' }}
-                                                            title="Modifica Transazione"
-                                                            onClick={() => {
-                                                                handleCloseDeepDive();
-                                                                handleEditTransaction(tx);
-                                                            }}
-                                                        >✏️</button>
-                                                        <button
-                                                            className="btn btn-outline"
-                                                            style={{ padding: '0.2rem 0.4rem', borderColor: 'rgba(239, 68, 68, 0.5)', color: 'var(--danger)', fontSize: '0.8rem' }}
-                                                            title="Elimina Transazione"
-                                                            onClick={() => {
-                                                                handleCloseDeepDive();
-                                                                handleDeleteTransaction(tx.id);
-                                                            }}
-                                                        >❌</button>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {transactions.filter(tx => tx.symbol === selectedAsset.symbol).map(tx => {
+                                                const c = tx.currency || 'EUR';
+                                                const sym = { 'EUR': '€', 'USD': '$', 'GBP': '£', 'JPY': '¥', 'CHF': 'CHF' }[c] || c + ' ';
+                                                return (
+                                                    <tr key={tx.id}>
+                                                        <td style={{ padding: '0.6rem' }}>{new Date(tx.date).toLocaleDateString('it-IT')}</td>
+                                                        <td style={{ padding: '0.6rem' }}>
+                                                            <span style={{ color: tx.type === 'Buy' ? 'var(--success)' : (tx.type === 'Sell' ? 'var(--danger)' : 'var(--accent)') }}>
+                                                                {tx.type}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '0.6rem' }}>{tx.quantity}</td>
+                                                        <td style={{ padding: '0.6rem' }}>{sym}{(tx.price || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
+                                                        <td style={{ padding: '0.6rem' }}>{sym}{(tx.total || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}</td>
+                                                        <td style={{ padding: '0.6rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                                            <button
+                                                                className="btn btn-outline"
+                                                                style={{ padding: '0.2rem 0.4rem', marginRight: '0.5rem', fontSize: '0.8rem' }}
+                                                                title="Modifica Transazione"
+                                                                onClick={() => {
+                                                                    handleCloseDeepDive();
+                                                                    handleEditTransaction(tx);
+                                                                }}
+                                                            >✏️</button>
+                                                            <button
+                                                                className="btn btn-outline"
+                                                                style={{ padding: '0.2rem 0.4rem', borderColor: 'rgba(239, 68, 68, 0.5)', color: 'var(--danger)', fontSize: '0.8rem' }}
+                                                                title="Elimina Transazione"
+                                                                onClick={() => {
+                                                                    handleCloseDeepDive();
+                                                                    handleDeleteTransaction(tx.id);
+                                                                }}
+                                                            >❌</button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                             {transactions.filter(tx => tx.symbol === selectedAsset.symbol).length === 0 && (
                                                 <tr>
                                                     <td colSpan="6" style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-secondary)' }}>
@@ -234,9 +238,9 @@ const GlobalModals = () => {
                                 <h3 style={{ margin: 0, fontSize: '1.1rem', marginBottom: '1rem', textAlign: 'left' }}>Asset nel Conto</h3>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
                                     {selectedAccount.data.items.map((item, idx) => (
-                                        <div 
-                                            key={idx} 
-                                            style={{ 
+                                        <div
+                                            key={idx}
+                                            style={{
                                                 padding: '1rem',
                                                 background: 'rgba(255,255,255,0.03)',
                                                 borderRadius: '12px',
@@ -245,21 +249,21 @@ const GlobalModals = () => {
                                                 transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
                                             }}
                                             onMouseEnter={(e) => {
-                                                if(!item.isLiquidity) {
+                                                if (!item.isLiquidity) {
                                                     e.currentTarget.style.borderColor = 'var(--accent)';
                                                     e.currentTarget.style.transform = 'translateY(-2px)';
                                                     e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
                                                 }
                                             }}
                                             onMouseLeave={(e) => {
-                                                if(!item.isLiquidity) {
+                                                if (!item.isLiquidity) {
                                                     e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)';
                                                     e.currentTarget.style.transform = 'none';
                                                     e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
                                                 }
                                             }}
                                             onClick={() => {
-                                                if(!item.isLiquidity) {
+                                                if (!item.isLiquidity) {
                                                     handleCloseAccountDeepDive();
                                                     handleOpenDeepDive(item);
                                                 }
@@ -267,7 +271,7 @@ const GlobalModals = () => {
                                             title={item.isLiquidity ? "La liquidità puran non ha un grafico storico" : "Clicca per aprire il Deep Dive e il grafico"}
                                         >
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                                <strong style={{ fontSize: '1.1rem', color: 'var(--text-primary)' }}>{item.symbol} {item.isLiquidity && <span style={{fontSize:'0.7rem', color:'var(--text-secondary)'}}>(Cassa)</span>}</strong>
+                                                <strong style={{ fontSize: '1.1rem', color: 'var(--text-primary)' }}>{item.symbol} {item.isLiquidity && <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>(Cassa)</span>}</strong>
                                                 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                                                     {item.quantity.toLocaleString('it-IT', { maximumFractionDigits: 4 })}
                                                 </span>
@@ -473,40 +477,44 @@ const GlobalModals = () => {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {transactions.filter(tx => tx.account === selectedAccount.name || (!tx.account && selectedAccount.name === 'Default')).map(tx => (
-                                                <tr key={tx.id}>
-                                                    <td style={{ padding: '0.6rem' }}>{new Date(tx.date).toLocaleDateString('it-IT')}</td>
-                                                    <td style={{ padding: '0.6rem' }}>
-                                                        <span style={{ color: tx.type === 'Buy' || tx.type === 'Deposit' ? 'var(--success)' : (tx.type === 'Sell' || tx.type === 'Withdrawal' ? 'var(--danger)' : 'var(--accent)') }}>
-                                                            {tx.type}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ padding: '0.6rem' }}>{tx.symbol}</td>
-                                                    <td style={{ padding: '0.6rem' }}>{tx.quantity}</td>
-                                                    <td style={{ padding: '0.6rem' }}>€{(tx.price || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
-                                                    <td style={{ padding: '0.6rem' }}>€{(tx.total || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}</td>
-                                                    <td style={{ padding: '0.6rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                                        <button
-                                                            className="btn btn-outline"
-                                                            style={{ padding: '0.2rem 0.4rem', marginRight: '0.5rem', fontSize: '0.8rem' }}
-                                                            title="Modifica Transazione"
-                                                            onClick={() => {
-                                                                handleCloseAccountDeepDive();
-                                                                handleEditTransaction(tx);
-                                                            }}
-                                                        >✏️</button>
-                                                        <button
-                                                            className="btn btn-outline"
-                                                            style={{ padding: '0.2rem 0.4rem', borderColor: 'rgba(239, 68, 68, 0.5)', color: 'var(--danger)', fontSize: '0.8rem' }}
-                                                            title="Elimina Transazione"
-                                                            onClick={() => {
-                                                                handleCloseAccountDeepDive();
-                                                                handleDeleteTransaction(tx.id);
-                                                            }}
-                                                        >❌</button>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {transactions.filter(tx => tx.account === selectedAccount.name || (!tx.account && selectedAccount.name === 'Default')).map(tx => {
+                                                const c = tx.currency || 'EUR';
+                                                const sym = { 'EUR': '€', 'USD': '$', 'GBP': '£', 'JPY': '¥', 'CHF': 'CHF' }[c] || c + ' ';
+                                                return (
+                                                    <tr key={tx.id}>
+                                                        <td style={{ padding: '0.6rem' }}>{new Date(tx.date).toLocaleDateString('it-IT')}</td>
+                                                        <td style={{ padding: '0.6rem' }}>
+                                                            <span style={{ color: tx.type === 'Buy' || tx.type === 'Deposit' ? 'var(--success)' : (tx.type === 'Sell' || tx.type === 'Withdrawal' ? 'var(--danger)' : 'var(--accent)') }}>
+                                                                {tx.type}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '0.6rem' }}>{tx.symbol}</td>
+                                                        <td style={{ padding: '0.6rem' }}>{tx.quantity}</td>
+                                                        <td style={{ padding: '0.6rem' }}>{sym}{(tx.price || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
+                                                        <td style={{ padding: '0.6rem' }}>{sym}{(tx.total || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}</td>
+                                                        <td style={{ padding: '0.6rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                                            <button
+                                                                className="btn btn-outline"
+                                                                style={{ padding: '0.2rem 0.4rem', marginRight: '0.5rem', fontSize: '0.8rem' }}
+                                                                title="Modifica Transazione"
+                                                                onClick={() => {
+                                                                    handleCloseAccountDeepDive();
+                                                                    handleEditTransaction(tx);
+                                                                }}
+                                                            >✏️</button>
+                                                            <button
+                                                                className="btn btn-outline"
+                                                                style={{ padding: '0.2rem 0.4rem', borderColor: 'rgba(239, 68, 68, 0.5)', color: 'var(--danger)', fontSize: '0.8rem' }}
+                                                                title="Elimina Transazione"
+                                                                onClick={() => {
+                                                                    handleCloseAccountDeepDive();
+                                                                    handleDeleteTransaction(tx.id);
+                                                                }}
+                                                            >❌</button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                             {transactions.filter(tx => tx.account === selectedAccount.name || (!tx.account && selectedAccount.name === 'Default')).length === 0 && (
                                                 <tr>
                                                     <td colSpan="7" style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-secondary)' }}>
