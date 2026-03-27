@@ -13,3 +13,9 @@ portfolio.db
  Fase 4: Pubblicazione (Deploy)
  Mettere online il backend (es. su Render.com).
  Mettere online il frontend (su Vercel) e farlo comunicare con il backend.
+
+ IDEA FUTURA: Evoluzione in SaaS Multi-Utente
+ 1. Sistema di Autenticazione: Implementare Supabase Auth per Login/Registrazione (Email e Password).
+ 2. Database Multi-Tenant: Aggiungere la colonna `user_id` in tutte le tabelle e attivare la Row Level Security (RLS) su Supabase.
+ 3. Backend: Passaggio del token JWT nelle chiamate FastAPI per permettere ad ogni utente l'accesso esclusivo al proprio portafoglio.
+ 4. Frontend: Aggiornare la gestione dello stato React al volo svuotando i dati al logout.
