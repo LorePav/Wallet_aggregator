@@ -528,9 +528,9 @@ export const PortfolioProvider = ({ children }) => {
   const handleEditTransaction = (tx) => {
     setFormData({
       symbol: tx.symbol,
-      name: '',       // name e category non sono sul DB Transazioni, usiamo default
+      name: '',
       category: (tx.type === 'Deposit' || tx.type === 'Withdrawal') ? 'Liquidità' : 'Azioni',
-      currency: 'EUR',
+      currency: tx.currency || 'EUR',
       date: tx.date,
       type: tx.type,
       quantity: tx.quantity,

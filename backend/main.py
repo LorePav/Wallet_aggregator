@@ -111,7 +111,13 @@ def read_assets(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 def create_asset(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
     db_asset = db.query(models.Asset).filter(models.Asset.symbol == asset.symbol).first()
     if db_asset:
-        raise HTTPException(status_code=400, detail="Asset già inserito nel portafoglio")
+        # Aggiorna la valuta (e categoria) in caso l'utente l'abbia modificata da una transazione
+        if db_asset.currency != asset.currency or db_asset.category != asset.category:
+            db_asset.currency = asset.currency
+            db_asset.category = asset.category
+            db.commit()
+            db.refresh(db_asset)
+        return db_asset
     db_asset = models.Asset(**asset.model_dump())
     db.add(db_asset)
     db.commit()
