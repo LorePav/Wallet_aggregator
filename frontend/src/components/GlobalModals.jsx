@@ -7,7 +7,8 @@ const GlobalModals = () => {
         selectedAsset, handleCloseDeepDive, handleOpenDeepDive, formatCurrency, assetHistory, transactions, handleDeleteTransaction, handleEditTransaction,
         selectedAccount, handleCloseAccountDeepDive, displayCurrency, fxRates,
         groupSmallDeepDiveAssets, setGroupSmallDeepDiveAssets, pieAccountOrder, COLORS, customColors, hiddenDeepDiveAssets, handleColorChange,
-        handleDeepDiveLegendClick, setHoveredDeepDiveAsset, hoveredDeepDiveAsset, setPieAccountOrder, focusedDeepDiveAsset, setFocusedDeepDiveAsset, CustomLegend
+        handleDeepDiveLegendClick, setHoveredDeepDiveAsset, hoveredDeepDiveAsset, setPieAccountOrder, focusedDeepDiveAsset, setFocusedDeepDiveAsset, CustomLegend,
+        isTransferModalOpen, setIsTransferModalOpen, handleTransferSubmit, accountBalances
     } = usePortfolioContext();
 
     const convertedAssetHistory = React.useMemo(() => {
@@ -526,6 +527,70 @@ const GlobalModals = () => {
                                     </table>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Trasferimento Fondi (Giroconto) */}
+            {isTransferModalOpen && (
+                <div className="modal-overlay" style={{ zIndex: 1000 }}>
+                    <div className="modal">
+                        <div className="modal-header">
+                            <h2>⇄ Giroconto / Transfer</h2>
+                            <button className="close-btn" onClick={() => setIsTransferModalOpen(false)}>&times;</button>
+                        </div>
+                        <div className="modal-body">
+                            <form onSubmit={(e) => {
+                                const target = e.target;
+                                handleTransferSubmit(e, {
+                                    sourceAccount: target.sourceAccount.value,
+                                    destAccount: target.destAccount.value,
+                                    amount: target.amount.value,
+                                    currency: target.currency.value,
+                                    date: target.date.value
+                                });
+                            }}>
+                                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                    <label>Conto di Origine (Da dove prelevare)</label>
+                                    <input type="text" className="form-control" name="sourceAccount" list="accounts-list-transfer" required placeholder="es. Fineco" />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '1rem', textAlign: 'center', color: 'var(--accent)', fontSize: '1.5rem', fontWeight: 'bold' }}>
+                                    ⬇
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                    <label>Conto di Destinazione (Dove depositare)</label>
+                                    <input type="text" className="form-control" name="destAccount" list="accounts-list-transfer" required placeholder="es. Interactive Brokers" />
+                                </div>
+                                <datalist id="accounts-list-transfer">
+                                    {Object.keys(accountBalances || {}).map(acc => (
+                                        <option key={acc} value={acc} />
+                                    ))}
+                                </datalist>
+
+                                <div className="form-grid">
+                                    <div className="form-group">
+                                        <label>Importo</label>
+                                        <input type="number" step="any" className="form-control" name="amount" required />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Valuta</label>
+                                        <select className="form-control" name="currency" required defaultValue="EUR">
+                                            <option value="EUR">Euro (€)</option>
+                                            <option value="USD">Dollaro ($)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="form-group" style={{ marginTop: '1rem' }}>
+                                    <label>Data</label>
+                                    <input type="date" className="form-control" name="date" required defaultValue={new Date().toISOString().split('T')[0]} />
+                                </div>
+
+                                <div className="form-actions" style={{ marginTop: '2rem' }}>
+                                    <button type="button" className="btn btn-outline" onClick={() => setIsTransferModalOpen(false)}>Annulla</button>
+                                    <button type="submit" className="btn" style={{ background: 'var(--accent)' }}>Conferma Trasferimento</button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>

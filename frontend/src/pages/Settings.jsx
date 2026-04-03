@@ -195,7 +195,7 @@ const Settings = () => {
                 btn.textContent = '⏳ Esportazione...';
                 btn.disabled = true;
                 try {
-                  const res = await axios.post('https://wallet-aggregator.onrender.com/api/export-sheets');
+                  const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/export-sheets`);
                   alert(`✅ ${res.data.message}\n\n📊 Asset esportati: ${res.data.assets_exported}\n💰 Voci liquidità: ${res.data.liquidity_entries}\n🕐 Ora: ${res.data.timestamp}`);
                 } catch (err) {
                   alert('❌ Errore durante l\'esportazione: ' + (err.response?.data?.detail || err.message));

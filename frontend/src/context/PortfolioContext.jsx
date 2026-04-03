@@ -8,60 +8,60 @@ export const PortfolioContext = createContext();
 
 export const usePortfolioContext = () => useContext(PortfolioContext);
 
-export const PortfolioProvider = ({ children }) => {
+// Global Palette
+export const COLORS = [
+  '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+  '#06b6d4', '#ec4899', '#14b8a6', '#f97316', '#6366f1',
+  '#84cc16', '#1e40af', '#047857', '#b91c1c', '#6d28d9',
+  '#d946ef', '#0ea5e9', '#64748b', '#22c55e', '#a855f7'
+];
 
-  // Global Palette
-  const COLORS = [
-    '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
-    '#06b6d4', '#ec4899', '#14b8a6', '#f97316', '#6366f1',
-    '#84cc16', '#1e40af', '#047857', '#b91c1c', '#6d28d9',
-    '#d946ef', '#0ea5e9', '#64748b', '#22c55e', '#a855f7'
-  ];
-
-  const CustomLegend = ({ customPayload, hiddenItems, onToggle, onHover, onHoverLeave, onColorChange, onReorder }) => {
-    return (
-      <div className="legend-scrollable" style={{ padding: '0 10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {customPayload.map((entry, index) => {
-          const isHidden = hiddenItems && hiddenItems[entry.value];
-          return (
-            <div
-              key={`item-${index}`}
-              draggable
-              onDragStart={(e) => { e.dataTransfer.setData('text/plain', index); }}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
-                if (!isNaN(dragIndex) && onReorder) {
-                  onReorder(dragIndex, index);
-                }
-              }}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '4px 8px', borderRadius: '6px',
-                background: isHidden ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
-                cursor: 'grab', opacity: isHidden ? 0.5 : 1, transition: 'all 0.2s'
-              }}
-              onMouseEnter={() => onHover && onHover(entry.value)}
-              onMouseLeave={() => onHoverLeave && onHoverLeave()}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => onToggle && onToggle(entry.value)}>
-                <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: isHidden ? '#4b5563' : entry.color }} />
-                <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>{entry.value}</span>
-              </div>
-              <input
-                type="color"
-                value={entry.color}
-                onChange={(e) => onColorChange && onColorChange(entry.value, e.target.value)}
-                style={{ width: '20px', height: '20px', padding: 0, border: 'none', borderRadius: '4px', cursor: 'pointer', background: 'transparent' }}
-                title="Cambia colore"
-              />
+export const CustomLegend = ({ customPayload, hiddenItems, onToggle, onHover, onHoverLeave, onColorChange, onReorder }) => {
+  return (
+    <div className="legend-scrollable" style={{ padding: '0 10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {customPayload.map((entry, index) => {
+        const isHidden = hiddenItems && hiddenItems[entry.value];
+        return (
+          <div
+            key={`item-${index}`}
+            draggable
+            onDragStart={(e) => { e.dataTransfer.setData('text/plain', index); }}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
+              if (!isNaN(dragIndex) && onReorder) {
+                onReorder(dragIndex, index);
+              }
+            }}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '4px 8px', borderRadius: '6px',
+              background: isHidden ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
+              cursor: 'grab', opacity: isHidden ? 0.5 : 1, transition: 'all 0.2s'
+            }}
+            onMouseEnter={() => onHover && onHover(entry.value)}
+            onMouseLeave={() => onHoverLeave && onHoverLeave()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => onToggle && onToggle(entry.value)}>
+              <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: isHidden ? '#4b5563' : entry.color }} />
+              <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>{entry.value}</span>
             </div>
-          );
-        })}
-      </div>
-    );
-  };
+            <input
+              type="color"
+              value={entry.color}
+              onChange={(e) => onColorChange && onColorChange(entry.value, e.target.value)}
+              style={{ width: '20px', height: '20px', padding: 0, border: 'none', borderRadius: '4px', cursor: 'pointer', background: 'transparent' }}
+              title="Cambia colore"
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+export const PortfolioProvider = ({ children }) => {
 
   const [themeColor, setThemeColor] = useState(() => {
     return localStorage.getItem('themeColor') || '#3b82f6';
@@ -111,6 +111,7 @@ export const PortfolioProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState(null); // Asset selezionato per il Deep Dive
   const [selectedAccount, setSelectedAccount] = useState(null); // Conto selezionato per il Deep Dive
   const [hiddenDeepDiveAssets, setHiddenDeepDiveAssets] = useState({});
@@ -146,7 +147,8 @@ export const PortfolioProvider = ({ children }) => {
     chart: true,
     pies: true,
     portfolio: true,
-    transactions: false // Transazioni chiuse per default (la tabella è lunga)
+    transactions: false, // Transazioni chiuse per default (la tabella è lunga)
+    passive: true
   });
   const toggleSection = (key) => setSections(prev => ({ ...prev, [key]: !prev[key] }));
 
@@ -306,7 +308,7 @@ export const PortfolioProvider = ({ children }) => {
 
   const fetchSnapshots = async () => {
     try {
-      const res = await axios.get('https://wallet-aggregator.onrender.com/api/snapshots');
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/snapshots`);
       setSnapshots(res.data);
     } catch (err) {
       console.error("Errore fetch snapshots:", err);
@@ -315,7 +317,7 @@ export const PortfolioProvider = ({ children }) => {
 
   const fetchBenchmark = async () => {
     try {
-      const res = await axios.get('https://wallet-aggregator.onrender.com/api/benchmark');
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/benchmark`);
       setBenchmarkData(res.data);
     } catch (err) {
       console.error("Errore fetch benchmark:", err);
@@ -324,7 +326,7 @@ export const PortfolioProvider = ({ children }) => {
 
   const fetchLiquidity = async () => {
     try {
-      const res = await axios.get('https://wallet-aggregator.onrender.com/api/liquidity');
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/liquidity`);
       setLiquidity(res.data);
     } catch (err) {
       console.error("Errore fetch liquidity:", err);
@@ -333,7 +335,7 @@ export const PortfolioProvider = ({ children }) => {
 
   const fetchFxRates = async () => {
     try {
-      const res = await axios.get('https://wallet-aggregator.onrender.com/api/fx_rates');
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/fx_rates`);
       setFxRates(res.data);
     } catch (err) {
       console.error("Errore fetch fx rates:", err);
@@ -342,7 +344,7 @@ export const PortfolioProvider = ({ children }) => {
 
   const fetchTransactions = async () => {
     try {
-      const res = await axios.get('https://wallet-aggregator.onrender.com/api/transactions');
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/transactions`);
       // Ordine Decrescente per Data
       const sorted = res.data.sort((a, b) => new Date(b.date) - new Date(a.date));
       setTransactions(sorted);
@@ -355,7 +357,7 @@ export const PortfolioProvider = ({ children }) => {
     setLoading(true);
     try {
       // Quando chiedo il portfolio il backend scatena il salvataggio dello snapshot
-      const res = await axios.get('https://wallet-aggregator.onrender.com/api/portfolio');
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/portfolio`);
       setPortfolio(res.data);
       setLoading(false);
       setLastUpdated(new Date());
@@ -375,7 +377,7 @@ export const PortfolioProvider = ({ children }) => {
 
   const fetchSparkline = async (symbol) => {
     try {
-      const res = await axios.get(`https://wallet-aggregator.onrender.com/api/asset-history/${symbol}?period=7d`);
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/asset-history/${symbol}?period=7d`);
       setSparklineData(prev => ({ ...prev, [symbol]: res.data }));
     } catch (err) {
       // Ignora l'errore per singolo asset
@@ -384,7 +386,7 @@ export const PortfolioProvider = ({ children }) => {
 
   const fetchAssetHistory = async (symbol) => {
     try {
-      const res = await axios.get(`https://wallet-aggregator.onrender.com/api/asset-history/${symbol}?period=1y`);
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/asset-history/${symbol}?period=1y`);
       setAssetHistory(res.data);
     } catch (err) {
       console.error("Errore fetch storico asset:", err);
@@ -469,7 +471,7 @@ export const PortfolioProvider = ({ children }) => {
       // 1. Assicuriamoci che l'asset esista (Solo se NON e' deposito/prelievo)
       if (formData.type !== 'Deposit' && formData.type !== 'Withdrawal') {
         try {
-          await axios.post('https://wallet-aggregator.onrender.com/api/assets', {
+          await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/assets`, {
             symbol: formData.symbol.toUpperCase(),
             name: formData.name || formData.symbol.toUpperCase(),
             category: formData.category,
@@ -482,7 +484,7 @@ export const PortfolioProvider = ({ children }) => {
 
       // 2. Crea la transazione
       let q = parseFloat(formData.quantity);
-      let p = parseFloat(formData.price);
+      let p = (formData.type === 'Dividend' || formData.type === 'Farming DeFi') ? 1 : parseFloat(formData.price);
       let f = parseFloat(formData.fees) || 0;
 
       const txData = {
@@ -497,9 +499,9 @@ export const PortfolioProvider = ({ children }) => {
       };
 
       if (editingTxId) {
-        await axios.put(`https://wallet-aggregator.onrender.com/api/transactions/${editingTxId}`, txData);
+        await axios.put(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/transactions/${editingTxId}`, txData);
       } else {
-        await axios.post('https://wallet-aggregator.onrender.com/api/transactions', txData);
+        await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/transactions`, txData);
       }
 
       setIsModalOpen(false);
@@ -525,6 +527,50 @@ export const PortfolioProvider = ({ children }) => {
     }
   };
 
+  const handleTransferSubmit = async (e, transferData) => {
+    e.preventDefault();
+    try {
+      const { sourceAccount, destAccount, amount, currency, date } = transferData;
+      let amt = parseFloat(amount);
+      if (!sourceAccount || !destAccount || isNaN(amt) || amt <= 0) {
+        alert('Dati di trasferimento non validi o mancanti'); return;
+      }
+
+      const txWithdrawal = {
+        date: date,
+        type: 'Withdrawal',
+        symbol: currency,
+        quantity: amt,
+        price: 1,
+        total: amt,
+        fees: 0,
+        account: sourceAccount
+      };
+
+      const txDeposit = {
+        date: date,
+        type: 'Deposit',
+        symbol: currency,
+        quantity: amt,
+        price: 1,
+        total: amt,
+        fees: 0,
+        account: destAccount
+      };
+
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/transactions`, txWithdrawal);
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/transactions`, txDeposit);
+
+      setIsTransferModalOpen(false);
+      fetchPortfolio();
+      fetchTransactions();
+      fetchLiquidity();
+    } catch (err) {
+      alert("Errore di rete durante il salvataggio del trasferimento");
+      console.error(err);
+    }
+  };
+
   const handleEditTransaction = (tx) => {
     setFormData({
       symbol: tx.symbol,
@@ -545,7 +591,7 @@ export const PortfolioProvider = ({ children }) => {
   const handleDeleteTransaction = async (id) => {
     if (window.confirm("Sei sicuro di voler eliminare questa transazione?\nL'azione cancellerà il record in modo permanente e ricalcolerà il totale del portafoglio.")) {
       try {
-        await axios.delete(`https://wallet-aggregator.onrender.com/api/transactions/${id}`);
+        await axios.delete(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/transactions/${id}`);
         fetchPortfolio();
         fetchTransactions();
         fetchLiquidity(); // AGGIUNTO: Aggiorna la liquidità dopo l'eliminazione
@@ -559,7 +605,7 @@ export const PortfolioProvider = ({ children }) => {
   const handleResetPortfolio = async () => {
     if (window.confirm("ATTENZIONE! Vuoi davvero cancellare TUTTO il portafoglio? (Asset, Transazioni e Storico)\nQuesta azione è irreversibile!")) {
       try {
-        await axios.delete('https://wallet-aggregator.onrender.com/api/reset');
+        await axios.delete(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/reset`);
         setPortfolio([]);
         setTransactions([]);
         setLiquidity({});
@@ -1069,6 +1115,38 @@ export const PortfolioProvider = ({ children }) => {
     }
     return null;
   };
+
+  const passiveIncomeStats = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const stats = Array.from({ length: 12 }, (_, i) => ({
+      month: new Date(2000, i, 1).toLocaleString('it-IT', { month: 'short' }),
+      Dividendi: 0,
+      Farming: 0,
+      Totale: 0
+    }));
+
+    let totalDividends = 0;
+    let totalFarming = 0;
+
+    transactions.forEach(tx => {
+      const txDate = new Date(tx.date);
+      if (txDate.getFullYear() === currentYear) {
+        const m = txDate.getMonth();
+        let amount = tx.total;
+        if (tx.type === 'Dividend') {
+          stats[m].Dividendi += amount;
+          stats[m].Totale += amount;
+          totalDividends += amount;
+        } else if (tx.type === 'Farming DeFi') {
+          stats[m].Farming += amount;
+          stats[m].Totale += amount;
+          totalFarming += amount;
+        }
+      }
+    });
+
+    return { monthly: stats, totalDividends, totalFarming, year: currentYear };
+  }, [transactions]);
   return (
     <PortfolioContext.Provider value={{
       COLORS,
@@ -1135,12 +1213,18 @@ export const PortfolioProvider = ({ children }) => {
       hoveredCategory,
       hoveredDeepDiveAsset,
       isModalOpen,
+      setIsModalOpen,
       isSettingsOpen,
+      setIsSettingsOpen,
+      isTransferModalOpen,
+      setIsTransferModalOpen,
+      handleTransferSubmit,
       lastUpdated,
       loading,
       maxDrawdown,
       periodGain,
       periodGainPercent,
+      passiveIncomeStats,
       pieAccountOrder,
       portfolio,
       processedAssetData,
@@ -1173,8 +1257,6 @@ export const PortfolioProvider = ({ children }) => {
       setHoveredAsset,
       setHoveredCategory,
       setHoveredDeepDiveAsset,
-      setIsModalOpen,
-      setIsSettingsOpen,
       setPieAccountOrder,
       setPieAssetOrder,
       setPieCategoryOrder,

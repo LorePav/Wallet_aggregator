@@ -4,62 +4,65 @@ import { usePortfolioContext } from '../context/PortfolioContext';
 
 
 const Dashboard = () => {
-    const ctx = usePortfolioContext();
-    return (
-        <div className="dashboard-page">
-            <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                <h1>La Mia Dashboard</h1>
-                <p className="text-secondary">Benvenuto nel tuo tracker di portafoglio di nuova generazione.</p>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <select
-                    className="form-control"
-                    value={ctx.displayCurrency}
-                    onChange={(e) => {
-                        ctx.setDisplayCurrency(e.target.value);
-                        localStorage.setItem('displayCurrency', e.target.value);
-                    }}
-                    style={{ padding: '0.6rem 1rem', width: 'auto', backgroundColor: 'rgba(255,255,255,0.05)', fontWeight: 'bold' }}
-                    title="Cambia valuta di visualizzazione"
-                >
-                    <option value="EUR">🇪🇺 EUR</option>
-                    <option value="USD">🇺🇸 USD</option>
-                </select>
-                <button
-                    className="btn btn-outline"
-                    onClick={() => ctx.setIsSettingsOpen(true)}
-                    style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center' }}
-                    title="Impostazioni"
-                >
-                    ⚙️ Menu
-                </button>
-                <button
-                    className={`btn ${ctx.autoRefresh ? 'pulse-button' : 'btn-outline'}`}
-                    onClick={() => ctx.setAutoRefresh(!ctx.autoRefresh)}
-                    style={ctx.autoRefresh ? { background: 'var(--accent)', color: 'white', border: 'none' } : { borderColor: 'var(--accent)', color: 'var(--accent)' }}
-                >
-                    {ctx.autoRefresh ? '🔄 Auto-Refresh: ON' : '⏸ Auto-Refresh: OFF'}
-                </button>
-                <button className="btn" onClick={() => { ctx.setEditingTxId(null); ctx.setIsModalOpen(true); }} style={{ background: 'var(--success)' }}>
-                    + Nuova Transazione
-                </button>
-                <button className="btn" onClick={() => { ctx.fetchPortfolio(); ctx.fetchTransactions(); ctx.fetchLiquidity(); }}>
-                    Aggiorna Prezzi Live
-                </button>
-                </div>
-            </header>
+  const ctx = usePortfolioContext();
+  return (
+    <div className="dashboard-page">
+      <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1>La Mia Dashboard</h1>
+          <p className="text-secondary">Benvenuto nel tuo tracker di portafoglio di nuova generazione.</p>
+        </div>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <select
+            className="form-control"
+            value={ctx.displayCurrency}
+            onChange={(e) => {
+              ctx.setDisplayCurrency(e.target.value);
+              localStorage.setItem('displayCurrency', e.target.value);
+            }}
+            style={{ padding: '0.6rem 1rem', width: 'auto', backgroundColor: 'rgba(255,255,255,0.05)', fontWeight: 'bold' }}
+            title="Cambia valuta di visualizzazione"
+          >
+            <option value="EUR">🇪🇺 EUR</option>
+            <option value="USD">🇺🇸 USD</option>
+          </select>
+          <button
+            className="btn btn-outline"
+            onClick={() => ctx.setIsSettingsOpen(true)}
+            style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center' }}
+            title="Impostazioni"
+          >
+            ⚙️ Menu
+          </button>
+          <button
+            className={`btn ${ctx.autoRefresh ? 'pulse-button' : 'btn-outline'}`}
+            onClick={() => ctx.setAutoRefresh(!ctx.autoRefresh)}
+            style={ctx.autoRefresh ? { background: 'var(--accent)', color: 'white', border: 'none' } : { borderColor: 'var(--accent)', color: 'var(--accent)' }}
+          >
+            {ctx.autoRefresh ? '🔄 Auto-Refresh: ON' : '⏸ Auto-Refresh: OFF'}
+          </button>
+          <button className="btn" onClick={() => { ctx.setEditingTxId(null); ctx.setIsModalOpen(true); }} style={{ background: 'var(--success)' }}>
+            + Nuova Transazione
+          </button>
+          <button className="btn" onClick={() => { ctx.setIsTransferModalOpen(true); }} style={{ background: 'var(--accent)' }} title="Trasferisci o converti fondi tra conti">
+            ⇄ Giroconto / FX
+          </button>
+          <button className="btn" onClick={() => { ctx.fetchPortfolio(); ctx.fetchTransactions(); ctx.fetchLiquidity(); }}>
+            Aggiorna Prezzi Live
+          </button>
+        </div>
+      </header>
 
-            <div style={{ textAlign: 'right', marginBottom: '1.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                {ctx.lastUpdated ? `Ultimo aggiornamento: ${ctx.lastUpdated.toLocaleTimeString('it-IT')}` : 'Aggiornamento in corso...'}
-            </div>
+      <div style={{ textAlign: 'right', marginBottom: '1.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+        {ctx.lastUpdated ? `Ultimo aggiornamento: ${ctx.lastUpdated.toLocaleTimeString('it-IT')}` : 'Aggiornamento in corso...'}
+      </div>
 
-            {ctx.loading ? (
-                <div style={{ textAlign: 'center', padding: '5rem', fontSize: '1.2rem', color: 'var(--accent)' }}>
-                Caricamento Dati e Prezzi Live in corso...
-                </div>
-            ) : (
-                <>
+      {ctx.loading ? (
+        <div style={{ textAlign: 'center', padding: '5rem', fontSize: '1.2rem', color: 'var(--accent)' }}>
+          Caricamento Dati e Prezzi Live in corso...
+        </div>
+      ) : (
+        <>
 
           {/* Griglia Valori Globali */}
           <div className="summary-grid">
@@ -143,8 +146,20 @@ const Dashboard = () => {
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingLeft: '22px', borderLeft: '2px solid rgba(255,255,255,0.1)' }}>
                           {data.items.map((item, idx) => (
-                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                              <span className="text-secondary">{item.symbol} {item.isLiquidity ? '(Cassa)' : ''}</span>
+                            <div key={idx} style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              fontSize: '0.85rem',
+                              padding: item.isLiquidity ? '4px 8px' : '2px 0',
+                              marginTop: item.isLiquidity ? '4px' : '0',
+                              borderRadius: item.isLiquidity ? '6px' : '0',
+                              backgroundColor: item.isLiquidity ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                              fontWeight: item.isLiquidity ? '600' : 'normal',
+                              color: item.isLiquidity ? 'var(--accent)' : 'inherit'
+                            }}>
+                              <span className={item.isLiquidity ? "" : "text-secondary"}>
+                                {item.isLiquidity ? `💶 Liquidità (${item.symbol})` : item.symbol}
+                              </span>
                               <span>{ctx.formatCurrency(item.current_value, item.currency)}</span>
                             </div>
                           ))}
@@ -170,6 +185,53 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
+
+          {/* Box Rendite Passive */}
+          {ctx.passiveIncomeStats && (
+            <div style={{ marginBottom: '2.5rem' }}>
+              <div className="glass-panel" style={{ padding: '1rem 1.5rem', marginBottom: ctx.sections.passive ? '0' : '0', borderRadius: ctx.sections.passive ? '16px 16px 0 0' : '16px', cursor: 'pointer' }} onClick={() => ctx.toggleSection('passive')}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ margin: 0 }}>💸 Rendita Passiva ({ctx.passiveIncomeStats.year})</h3>
+                  <span style={{ fontSize: '1.4rem', transition: 'transform 0.3s', transform: ctx.sections.passive ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+                </div>
+              </div>
+
+              {ctx.sections.passive && (
+                <div className="glass-panel" style={{ borderRadius: '0 0 16px 16px', borderTop: 'none', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="dashboard-grid" style={{ marginBottom: '1.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                    <div className="summary-card" style={{ background: 'rgba(59, 130, 246, 0.1)' }}>
+                      <div className="text-secondary">Totale Dividendi</div>
+                      <div className="value" style={{ color: 'var(--accent)' }}>{ctx.formatCurrency(ctx.passiveIncomeStats.totalDividends, ctx.displayCurrency)}</div>
+                    </div>
+                    <div className="summary-card" style={{ background: 'rgba(16, 185, 129, 0.1)' }}>
+                      <div className="text-secondary">Totale Farming DeFi</div>
+                      <div className="value" style={{ color: 'var(--success)' }}>{ctx.formatCurrency(ctx.passiveIncomeStats.totalFarming, ctx.displayCurrency)}</div>
+                    </div>
+                    <div className="summary-card" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+                      <div className="text-secondary">Entrata Totale</div>
+                      <div className="value" style={{ fontSize: '1.8rem' }}>{ctx.formatCurrency(ctx.passiveIncomeStats.totalDividends + ctx.passiveIncomeStats.totalFarming, ctx.displayCurrency)}</div>
+                    </div>
+                  </div>
+
+                  {(ctx.passiveIncomeStats.totalDividends > 0 || ctx.passiveIncomeStats.totalFarming > 0) && (
+                    <div style={{ height: 300, width: '100%' }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={ctx.passiveIncomeStats.monthly} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
+                          <XAxis dataKey="month" stroke="var(--text-secondary)" tick={{ fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} />
+                          <YAxis stroke="var(--text-secondary)" tick={{ fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} tickFormatter={(val) => '€' + val} />
+                          <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-dark)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} formatter={(val) => ctx.formatCurrency(val, ctx.displayCurrency)} />
+                          <Legend />
+                          <Bar dataKey="Dividendi" stackId="a" fill="var(--accent)" radius={[0, 0, 0, 0]} />
+                          <Bar dataKey="Farming" stackId="a" fill="var(--success)" radius={[4, 4, 0, 0]} />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Grafico Andamento nel Tempo */}
           {ctx.snapshots.length > 0 && (
@@ -251,7 +313,7 @@ const Dashboard = () => {
                               if (!customTicks.includes(lastTime)) customTicks.push(lastTime);
                             }
                           }
-                          
+
                           return (
                             <XAxis
                               dataKey="time"
@@ -314,14 +376,14 @@ const Dashboard = () => {
                         <Scatter yAxisId="events" dataKey="has_event" fill="#f59e0b" shape="circle" style={{ filter: 'url(#glow)', cursor: 'pointer' }} r={5} />
 
                         <Tooltip content={<ctx.CustomHistoryTooltip />} />
-                        <Brush 
-                          dataKey="time" 
-                          height={40} 
-                          stroke="var(--accent)" 
-                          fill="rgba(139, 92, 246, 0.05)" 
+                        <Brush
+                          dataKey="time"
+                          height={40}
+                          stroke="var(--accent)"
+                          fill="rgba(139, 92, 246, 0.05)"
                           travellerWidth={14}
-                          tickFormatter={(unixTime) => ctx.historyPeriod === '1G' 
-                            ? new Date(unixTime).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) 
+                          tickFormatter={(unixTime) => ctx.historyPeriod === '1G'
+                            ? new Date(unixTime).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
                             : new Date(unixTime).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })
                           }
                           style={{
@@ -636,9 +698,9 @@ const Dashboard = () => {
               </div>
             )}
           </div>
-                </>
-            )}
-        </div>
-    );
+        </>
+      )}
+    </div>
+  );
 };
 export default Dashboard;

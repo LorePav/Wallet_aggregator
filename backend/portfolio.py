@@ -2,9 +2,9 @@ from sqlalchemy.orm import Session
 import models
 import datetime
 
-def get_portfolio_data(db: Session):
-    transactions = db.query(models.Transaction).order_by(models.Transaction.date).all()
-    assets = db.query(models.Asset).all()
+def get_portfolio_data(db: Session, user_id: str):
+    transactions = db.query(models.Transaction).filter(models.Transaction.user_id == user_id).order_by(models.Transaction.date).all()
+    assets = db.query(models.Asset).filter(models.Asset.user_id == user_id).all()
     
     # Crea una mappa veloce degli asset
     asset_map = {a.symbol: a for a in assets}
@@ -47,7 +47,7 @@ def get_portfolio_data(db: Session):
              p["realized_gain"] += t.total
              
     # Fase 2: Recupero prezzi live
-    # Evitiamo di scaricare prezzi per la categoria Farming (impostiamo a 1.0 la loro valuta base)
+    # Evitiamo di scaricare prezzi per la categoria Farming
     symbols_to_fetch = [
         sym for sym, data in portfolio_dict.items() 
         if data["quantity"] > 0.000001 and (data.get("category", "").strip().upper() != "FARMING")
@@ -60,7 +60,7 @@ def get_portfolio_data(db: Session):
     # Fase 3: Calcolo finale del PMC e dei Valori Correnti
     result = []
     for sym, data in portfolio_dict.items():
-        if data["quantity"] <= 0.000001:  # Ignora asset venduti completamente (previene anche float residue)
+        if data["quantity"] <= 0.000001:
             continue
             
         data["pmc"] = data["total_invested"] / data["quantity"]
@@ -77,7 +77,6 @@ def get_portfolio_data(db: Session):
         fx_rate = fx_rates.get(currency, 1.0)
         usd_rate = fx_rates.get("USD", 1.0)
         
-        # fx_rate is EUR/USD e.g. 1.05. So to get EUR from USD, we divide by 1.05.
         data["current_value_eur"] = data["current_value"] / fx_rate if fx_rate else data["current_value"]
         data["current_value_usd"] = data["current_value_eur"] * usd_rate
         
@@ -97,42 +96,38 @@ def get_portfolio_data(db: Session):
         
     return result
 
-def update_daily_snapshot(db: Session, portfolio_data: list, liquidity_data: dict, fx_rates: dict = None):
+def update_daily_snapshot(db: Session, portfolio_data: list, liquidity_data: dict, user_id: str, fx_rates: dict = None):
     if fx_rates is None:
         import finance
         fx_rates = finance.get_exchange_rates()
 
-    # Calcolo totali su Asset (Investito e Valore MTM in EUR)
-    # L'investito originario lo convertiamo in EUR per avere un totale coerente
     total_invested_assets_eur = sum(
         item['total_invested'] / fx_rates.get(item['currency'], 1.0) 
         for item in portfolio_data
     )
     total_value_assets_eur = sum(item['current_value_eur'] for item in portfolio_data)
 
-    # Calcolo totale liquidità libera convertita in EUR
     total_liquidity_eur = 0.0
     for key, amt in liquidity_data.items():
-        if amt > 0:
+        if amt != 0:
             currency = key.split(' - ')[1] if ' - ' in key else 'EUR'
             total_liquidity_eur += amt / fx_rates.get(currency, 1.0)
 
-    # Net Worth Finale = Asset_MTM + Liquidità (in EUR)
     net_worth_eur = total_value_assets_eur + total_liquidity_eur
-
-    # Totale Investito = Investito negli Asset + Liquidità depositata (in EUR)
     total_invested_all_eur = total_invested_assets_eur + total_liquidity_eur
-
     today = datetime.date.today()
 
-    # Operazione di Upsert per sovrascrivere o creare lo snapshot di oggi
-    snapshot = db.query(models.DailySnapshot).filter(models.DailySnapshot.date == today).first()
+    snapshot = db.query(models.DailySnapshot).filter(
+        models.DailySnapshot.date == today, 
+        models.DailySnapshot.user_id == user_id
+    ).first()
     
     if snapshot:
         snapshot.total_value = net_worth_eur
         snapshot.total_invested = total_invested_all_eur
     else:
         snapshot = models.DailySnapshot(
+            user_id=user_id,
             date=today,
             total_value=net_worth_eur,
             total_invested=total_invested_all_eur
@@ -141,28 +136,24 @@ def update_daily_snapshot(db: Session, portfolio_data: list, liquidity_data: dic
         
     db.commit()
 
-def get_liquidity(db: Session):
-    transactions = db.query(models.Transaction).order_by(models.Transaction.date).all()
-    assets = db.query(models.Asset).all()
+def get_liquidity(db: Session, user_id: str):
+    transactions = db.query(models.Transaction).filter(models.Transaction.user_id == user_id).order_by(models.Transaction.date).all()
+    assets = db.query(models.Asset).filter(models.Asset.user_id == user_id).all()
     
-    # Mappa gli asset per poter cercare la loro valuta base
     asset_map = {a.symbol: a for a in assets}
-    
     liquidity_by_account_currency = {}
     
     for t in transactions:
         acc = t.account or "Default"
         
-        # Determina la valuta dell'operazione
-        if t.type in ["Deposit", "Withdrawal"]:
-            currency = t.symbol.upper() # Per depositi/prelievi inserivano EUR, USD, etc.
+        if t.type in ["Deposit", "Withdrawal", "Dividend", "Farming DeFi"]:
+            currency = t.symbol.upper()
         else:
             asset = asset_map.get(t.symbol)
-            # Forza l'Euro per conti come Trade Republic che fanno FX automatico e gestiscono solo cassa in EUR
             if acc.upper() in ["TRADE REP", "TRADE REPUBLIC", "SCALABLE", "SCALABLE CAPITAL", "DIRECTA"]:
                 currency = "EUR"
             else:
-                currency = asset.currency if asset else "EUR" # Default a EUR se asset sconosciuto
+                currency = asset.currency if asset else "EUR"
             
         key = f"{acc} - {currency}"
             
@@ -179,9 +170,8 @@ def get_liquidity(db: Session):
         elif t.type == "Sell":
             cash_gained = (t.quantity * t.price) - (t.fees or 0.0)
             liquidity_by_account_currency[key] += cash_gained
-        elif t.type == "Dividend":
-            cash_gained = (t.quantity * t.price) - (t.fees or 0.0)
-            liquidity_by_account_currency[key] += cash_gained
+        elif t.type in ["Dividend", "Farming DeFi"]:
+            # Per i dividendi/farming, accresce direttamente la liquidità indicata
+            liquidity_by_account_currency[key] += t.total
             
-    # Arrotonda per prevenire problemi di floating point
     return {k: round(v, 2) for k, v in liquidity_by_account_currency.items()}

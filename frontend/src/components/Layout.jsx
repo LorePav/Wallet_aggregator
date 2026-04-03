@@ -9,7 +9,7 @@ const Layout = () => {
   const {
     isModalOpen, setIsModalOpen,
     formData, setFormData, handleInputChange, handleSubmit,
-    editingTxId
+    editingTxId, accountBalances
   } = usePortfolioContext();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,7 +27,7 @@ const Layout = () => {
     const timeoutId = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await axios.get(`https://wallet-aggregator.onrender.com/api/search-tickers?q=${encodeURIComponent(searchTerm)}`);
+        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/search-tickers?q=${encodeURIComponent(searchTerm)}`);
         if (res.data) {
           setSearchResults(res.data);
           setShowDropdown(true);
@@ -79,7 +79,8 @@ const Layout = () => {
                     <select className="form-control" name="type" value={formData.type} onChange={handleInputChange} required>
                       <option value="Buy">Acquisto Asset (Buy)</option>
                       <option value="Sell">Vendita Asset (Sell)</option>
-                      <option value="Dividend">Incasso Dividendo</option>
+                      <option value="Dividend" style={{ color: 'var(--accent)' }}>Incasso Dividendo</option>
+                      <option value="Farming DeFi" style={{ color: 'var(--accent)' }}>Farming (DeFi)</option>
                       <option value="Deposit" style={{ color: 'var(--success)', fontWeight: 'bold' }}>+ Deposito in Cassa</option>
                       <option value="Withdrawal" style={{ color: 'var(--danger)', fontWeight: 'bold' }}>- Prelievo da Cassa</option>
                     </select>
@@ -88,9 +89,9 @@ const Layout = () => {
                     <label>Data</label>
                     <input type="date" className="form-control" name="date" value={formData.date} onChange={handleInputChange} required />
                   </div>
-                  {(formData.type === 'Deposit' || formData.type === 'Withdrawal') ? (
+                  {(formData.type === 'Deposit' || formData.type === 'Withdrawal' || formData.type === 'Dividend' || formData.type === 'Farming DeFi') ? (
                     <div className="form-group">
-                      <label>Valuta Flusso di Cassa</label>
+                      <label>Valuta Flusso di Cassa / Entrata</label>
                       <select className="form-control" name="symbol" value={formData.symbol} onChange={handleInputChange} required>
                         <option value="EUR">Euro (EUR)</option>
                         <option value="USD">Dollaro (USD)</option>
@@ -149,8 +150,8 @@ const Layout = () => {
                       value={formData.category}
                       onChange={handleInputChange}
                       required
-                      disabled={formData.type === 'Deposit' || formData.type === 'Withdrawal'}
-                      style={(formData.type === 'Deposit' || formData.type === 'Withdrawal') ? { backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' } : {}}
+                      disabled={formData.type === 'Deposit' || formData.type === 'Withdrawal' || formData.type === 'Dividend' || formData.type === 'Farming DeFi'}
+                      style={(formData.type === 'Deposit' || formData.type === 'Withdrawal' || formData.type === 'Dividend' || formData.type === 'Farming DeFi') ? { backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' } : {}}
                     >
                       <option value="Azioni">Azioni</option>
                       <option value="Crypto">Crypto</option>
@@ -168,20 +169,28 @@ const Layout = () => {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>Quantità</label>
+                    <label>{(formData.type === 'Dividend' || formData.type === 'Farming DeFi') ? 'Importo Ottenuto' : 'Quantità'}</label>
                     <input type="number" step="any" className="form-control" name="quantity" value={formData.quantity} onChange={handleInputChange} required />
                   </div>
-                  <div className="form-group">
-                    <label>Prezzo (per unità)</label>
-                    <input type="number" step="any" className="form-control" name="price" value={formData.price} onChange={handleInputChange} required />
-                  </div>
+
+                  {formData.type !== 'Dividend' && formData.type !== 'Farming DeFi' && (
+                    <div className="form-group">
+                      <label>Prezzo (per unità)</label>
+                      <input type="number" step="any" className="form-control" name="price" value={formData.price || ''} onChange={handleInputChange} required />
+                    </div>
+                  )}
                   <div className="form-group">
                     <label>Commissioni (Fees in Euro/Dollari)</label>
                     <input type="number" step="any" className="form-control" name="fees" value={formData.fees} onChange={handleInputChange} />
                   </div>
                   <div className="form-group">
-                    <label>Conto Investimento</label>
-                    <input type="text" className="form-control" name="account" value={formData.account} onChange={handleInputChange} />
+                    <label>Conto Investimento / Broker</label>
+                    <input type="text" className="form-control" name="account" list="accounts-list" value={formData.account} onChange={handleInputChange} placeholder="es. Fineco, Interactive Brokers..." />
+                    <datalist id="accounts-list">
+                      {accountBalances && Object.keys(accountBalances).map(acc => (
+                        <option key={acc} value={acc} />
+                      ))}
+                    </datalist>
                   </div>
                 </div>
                 <div className="form-actions">

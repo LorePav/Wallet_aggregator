@@ -4,6 +4,7 @@ from typing import Optional
 
 # ===== ASSET SCHEMAS =====
 class AssetBase(BaseModel):
+    user_id: Optional[str] = None
     symbol: str
     name: str
     category: str
@@ -20,6 +21,7 @@ class Asset(AssetBase):
 
 # ===== TRANSACTION SCHEMAS =====
 class TransactionBase(BaseModel):
+    user_id: Optional[str] = None
     date: date
     type: str
     symbol: str
@@ -62,6 +64,7 @@ class PortfolioItem(BaseModel):
 
 # ===== SNAPSHOT SCHEMAS =====
 class DailySnapshotBase(BaseModel):
+    user_id: Optional[str] = None
     date: date
     total_value: float
     total_invested: float
@@ -71,4 +74,3 @@ class DailySnapshot(DailySnapshotBase):
 
     class Config:
         from_attributes = True
-

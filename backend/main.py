@@ -1,8 +1,9 @@
 from fastapi import FastAPI, Depends, HTTPException, Security
-from fastapi.security.api_key import APIKeyHeader
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
+import requests
 import os
 
 import models
@@ -12,20 +13,26 @@ from database import SessionLocal, engine
 
 models.Base.metadata.create_all(bind=engine)
 
-API_PASSWORD = os.environ.get("API_PASSWORD", "Lorewallet")
-api_key_header = APIKeyHeader(name="x-api-password", auto_error=False)
+security = HTTPBearer()
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://awyfpccnnbwfxumjzenc.supabase.co")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "sb_publishable_UCTWV4dBLfdkHC0sB2_M0g_A0Q_hATC")
 
-def verify_password(api_key: str = Security(api_key_header)):
-    # Se è impostata una password, verifichiamo che l'header corrisponda
-    if API_PASSWORD and api_key != API_PASSWORD:
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {token}"
+    }
+    response = requests.get(f"{SUPABASE_URL}/auth/v1/user", headers=headers)
+    if response.status_code != 200:
         raise HTTPException(
             status_code=401,
-            detail="Password non valida",
+            detail="Token non valido o scaduto",
         )
-    return api_key
+    return response.json()
 
-app = FastAPI(title="Portfolio API", dependencies=[Depends(verify_password)])
-# Permettiamo al Frontend (React) di parlare col Backend
+app = FastAPI(title="Portfolio API", dependencies=[Depends(verify_token)])
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,7 +41,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Connessione DB
 def get_db():
     db = SessionLocal()
     try:
@@ -48,14 +54,15 @@ def read_root():
 
 # --- ENDPOINTS TRANSAZIONI ---
 @app.get("/api/transactions", response_model=List[schemas.Transaction])
-def read_transactions(skip: int = 0, limit: int = 1000, symbol: str = None, db: Session = Depends(get_db)):
-    query = db.query(models.Transaction)
+def read_transactions(skip: int = 0, limit: int = 1000, symbol: str = None, db: Session = Depends(get_db), user_data: dict = Depends(verify_token)):
+    user_id = user_data["id"]
+    query = db.query(models.Transaction).filter(models.Transaction.user_id == user_id)
     if symbol:
         query = query.filter(models.Transaction.symbol == symbol)
     transactions = query.offset(skip).limit(limit).all()
     
     # Aggiungiamo dinamicamente la currency ad ogni transazione in uscita
-    assets = db.query(models.Asset).all()
+    assets = db.query(models.Asset).filter(models.Asset.user_id == user_id).all()
     asset_map = {a.symbol: a.currency for a in assets}
     for t in transactions:
         if t.type in ["Deposit", "Withdrawal"] and t.symbol in ["EUR", "USD", "GBP", "CHF", "JPY"]:
@@ -66,29 +73,35 @@ def read_transactions(skip: int = 0, limit: int = 1000, symbol: str = None, db: 
     return transactions
 
 @app.post("/api/transactions", response_model=schemas.Transaction)
-def create_transaction(transaction: schemas.TransactionCreate, db: Session = Depends(get_db)):
-    db_transaction = models.Transaction(**transaction.model_dump())
+def create_transaction(transaction: schemas.TransactionCreate, db: Session = Depends(get_db), user_data: dict = Depends(verify_token)):
+    user_id = user_data["id"]
+    tx_data = transaction.model_dump(exclude={"currency", "user_id"})
+    db_transaction = models.Transaction(**tx_data, user_id=user_id)
     db.add(db_transaction)
     db.commit()
     db.refresh(db_transaction)
     return db_transaction
 
 @app.put("/api/transactions/{transaction_id}", response_model=schemas.Transaction)
-def update_transaction(transaction_id: int, transaction: schemas.TransactionCreate, db: Session = Depends(get_db)):
-    db_transaction = db.query(models.Transaction).filter(models.Transaction.id == transaction_id).first()
+def update_transaction(transaction_id: int, transaction: schemas.TransactionCreate, db: Session = Depends(get_db), user_data: dict = Depends(verify_token)):
+    user_id = user_data["id"]
+    db_transaction = db.query(models.Transaction).filter(models.Transaction.id == transaction_id, models.Transaction.user_id == user_id).first()
     if not db_transaction:
         raise HTTPException(status_code=404, detail="Transazione non trovata")
     
-    for key, value in transaction.model_dump().items():
-        setattr(db_transaction, key, value)
+    tx_data = transaction.model_dump(exclude={"currency", "user_id"})
+    for key, value in tx_data.items():
+        if key != "user_id": # eviteremo di sovrascriverlo per errore
+            setattr(db_transaction, key, value)
         
     db.commit()
     db.refresh(db_transaction)
     return db_transaction
 
 @app.delete("/api/transactions/{transaction_id}")
-def delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
-    db_transaction = db.query(models.Transaction).filter(models.Transaction.id == transaction_id).first()
+def delete_transaction(transaction_id: int, db: Session = Depends(get_db), user_data: dict = Depends(verify_token)):
+    user_id = user_data["id"]
+    db_transaction = db.query(models.Transaction).filter(models.Transaction.id == transaction_id, models.Transaction.user_id == user_id).first()
     if not db_transaction:
         raise HTTPException(status_code=404, detail="Transazione non trovata")
     
@@ -103,22 +116,25 @@ def api_search_tickers(q: str):
     return finance.search_tickers(q)
 
 @app.get("/api/assets", response_model=List[schemas.Asset])
-def read_assets(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    assets = db.query(models.Asset).offset(skip).limit(limit).all()
+def read_assets(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), user_data: dict = Depends(verify_token)):
+    user_id = user_data["id"]
+    assets = db.query(models.Asset).filter(models.Asset.user_id == user_id).offset(skip).limit(limit).all()
     return assets
 
 @app.post("/api/assets", response_model=schemas.Asset)
-def create_asset(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
-    db_asset = db.query(models.Asset).filter(models.Asset.symbol == asset.symbol).first()
+def create_asset(asset: schemas.AssetCreate, db: Session = Depends(get_db), user_data: dict = Depends(verify_token)):
+    user_id = user_data["id"]
+    db_asset = db.query(models.Asset).filter(models.Asset.symbol == asset.symbol, models.Asset.user_id == user_id).first()
     if db_asset:
-        # Aggiorna la valuta (e categoria) in caso l'utente l'abbia modificata da una transazione
         if db_asset.currency != asset.currency or db_asset.category != asset.category:
             db_asset.currency = asset.currency
             db_asset.category = asset.category
             db.commit()
             db.refresh(db_asset)
         return db_asset
+    
     db_asset = models.Asset(**asset.model_dump())
+    db_asset.user_id = user_id
     db.add(db_asset)
     db.commit()
     db.refresh(db_asset)
@@ -126,18 +142,19 @@ def create_asset(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
 
 # --- ENDPOINTS PORTFOLIO ---
 @app.get("/api/portfolio", response_model=List[schemas.PortfolioItem])
-def read_portfolio(db: Session = Depends(get_db)):
-    portfolio_data = portfolio.get_portfolio_data(db)
+def read_portfolio(db: Session = Depends(get_db), user_data: dict = Depends(verify_token)):
+    user_id = user_data["id"]
+    portfolio_data = portfolio.get_portfolio_data(db, user_id)
     
-    # Genera snapshot aggiornando con l'MTM live
-    liquidity_data = portfolio.get_liquidity(db)
-    portfolio.update_daily_snapshot(db, portfolio_data, liquidity_data)
+    liquidity_data = portfolio.get_liquidity(db, user_id)
+    portfolio.update_daily_snapshot(db, portfolio_data, liquidity_data, user_id)
     
     return portfolio_data
 
 @app.get("/api/liquidity")
-def read_liquidity(db: Session = Depends(get_db)):
-    return portfolio.get_liquidity(db)
+def read_liquidity(db: Session = Depends(get_db), user_data: dict = Depends(verify_token)):
+    user_id = user_data["id"]
+    return portfolio.get_liquidity(db, user_id)
 
 @app.get("/api/fx_rates")
 def read_fx_rates():
@@ -146,9 +163,9 @@ def read_fx_rates():
 
 # --- ENDPOINTS SNAPSHOTS STORICI ---
 @app.get("/api/snapshots", response_model=List[schemas.DailySnapshot])
-def read_snapshots(db: Session = Depends(get_db)):
-    # Restituisce gli snapshot in ordine cronologico ascendente per disegnare il grafico da sinistra a destra
-    return db.query(models.DailySnapshot).order_by(models.DailySnapshot.date).all()
+def read_snapshots(db: Session = Depends(get_db), user_data: dict = Depends(verify_token)):
+    user_id = user_data["id"]
+    return db.query(models.DailySnapshot).filter(models.DailySnapshot.user_id == user_id).order_by(models.DailySnapshot.date).all()
 
 # --- ENDPOINTS ASSET HISTORY ---
 @app.get("/api/asset-history/{symbol}")
@@ -162,18 +179,18 @@ def read_asset_history(symbol: str, period: str = "1y", db: Session = Depends(ge
 @app.get("/api/benchmark")
 def read_benchmark_history(period: str = "5y"):
     import finance
-    # ^GSPC is the ticker for S&P 500 on Yahoo Finance
     history = finance.get_historical_prices("^GSPC", period)
     if not history:
         raise HTTPException(status_code=404, detail="Impossibile recuperare i dati del benchmark (S&P 500).")
     return history
 
 @app.delete("/api/reset")
-def reset_portfolio(db: Session = Depends(get_db)):
+def reset_portfolio(db: Session = Depends(get_db), user_data: dict = Depends(verify_token)):
+    user_id = user_data["id"]
     try:
-        db.query(models.Transaction).delete()
-        db.query(models.Asset).delete()
-        db.query(models.DailySnapshot).delete()
+        db.query(models.Transaction).filter(models.Transaction.user_id == user_id).delete()
+        db.query(models.Asset).filter(models.Asset.user_id == user_id).delete()
+        db.query(models.DailySnapshot).filter(models.DailySnapshot.user_id == user_id).delete()
         db.commit()
         return {"message": "Tutti i dati del portafoglio sono stati cancellati con successo."}
     except Exception as e:
@@ -182,14 +199,14 @@ def reset_portfolio(db: Session = Depends(get_db)):
 
 # --- ENDPOINT EXPORT GOOGLE SHEETS ---
 @app.post("/api/export-sheets")
-def export_to_sheets(db: Session = Depends(get_db)):
+def export_to_sheets(db: Session = Depends(get_db), user_data: dict = Depends(verify_token)):
+    user_id = user_data["id"]
     try:
-        portfolio_data = portfolio.get_portfolio_data(db)
-        liquidity_data = portfolio.get_liquidity(db)
+        portfolio_data = portfolio.get_portfolio_data(db, user_id)
+        liquidity_data = portfolio.get_liquidity(db, user_id)
         
         import export_sheets
         result = export_sheets.export_portfolio(portfolio_data, liquidity_data)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Errore durante l'esportazione: {str(e)}")
-

@@ -386,6 +386,7 @@ tr:hover td {
 /* Pie Chart Enhancements */
 .pie-chart-container {
   position: relative;
+  touch-action: pan-y;
   /* Aggiungi un filtro ombra sul contenitore del grafico se SVG filter non funziona bene su tutti i browser */
   filter: drop-shadow(0px 10px 20px rgba(0, 0, 0, 0.4));
 }
