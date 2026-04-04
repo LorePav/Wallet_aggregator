@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Date
+from sqlalchemy import Column, Integer, String, Float, DateTime, Date, UniqueConstraint
 from database import Base
 import datetime
 
@@ -28,6 +28,7 @@ class Transaction(Base):
 
 class DailySnapshot(Base):
     __tablename__ = "daily_snapshots"
+    __table_args__ = (UniqueConstraint('user_id', 'date', name='uq_user_date'),)
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(String, index=True, nullable=True) # ID Supabase User

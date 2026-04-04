@@ -5,6 +5,18 @@ import { usePortfolioContext } from '../context/PortfolioContext';
 
 const Transactions = () => {
   const ctx = usePortfolioContext();
+
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 15;
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [ctx.txSearchTerm, ctx.txTypeFilter, ctx.txAssetFilter, ctx.txPeriodFilter, ctx.sortedTransactions.length]);
+
+  const totalPages = Math.ceil(ctx.sortedTransactions.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const currentTxs = ctx.sortedTransactions.slice(startIndex, startIndex + itemsPerPage);
+
   return (
     <div className="transactions-page">
       {/* Tabella Cronologia Transazioni */}
@@ -14,6 +26,17 @@ const Transactions = () => {
           {/* TRANSACTION FILTERS UI */}
           <div className="glass-panel" style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap', padding: '1rem', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
             <span style={{ fontWeight: '500', color: 'var(--text-secondary)' }}>Filtra:</span>
+            <select
+              className="form-control"
+              value={ctx.txPeriodFilter}
+              onChange={e => ctx.setTxPeriodFilter(e.target.value)}
+              style={{ minWidth: '150px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              <option value="30d">📅 Ultimi 30 Giorni</option>
+              <option value="ytd">📅 Da Inizio Anno (YTD)</option>
+              <option value="1y">📅 Ultimi 12 Mesi</option>
+              <option value="all">📅 Tutto lo Storico</option>
+            </select>
             <input
               type="text"
               placeholder="🔍 Cerca asset o conto..."
@@ -64,7 +87,7 @@ const Transactions = () => {
                 </tr>
               </thead>
               <tbody>
-                {ctx.sortedTransactions.map(tx => {
+                {currentTxs.map(tx => {
                   const c = tx.currency || 'EUR';
                   const sym = { 'EUR': '€', 'USD': '$', 'GBP': '£', 'JPY': '¥', 'CHF': 'CHF' }[c] || c + ' ';
                   return (
@@ -129,6 +152,51 @@ const Transactions = () => {
               </tbody>
             </table>
           </div>
+
+          {/* PAGINATION UI */}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
+              <span className="text-secondary" style={{ fontSize: '0.9rem' }}>
+                Pagina {currentPage} di {totalPages}
+                <span style={{ marginLeft: '12px', opacity: 0.7 }}>({ctx.sortedTransactions.length} risultati filtrati)</span>
+              </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  className="btn btn-outline"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  style={{ padding: '0.4rem 0.8rem', opacity: currentPage === 1 ? 0.5 : 1 }}
+                >
+                  &lt; Prec
+                </button>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                    .map((p, idx, arr) => (
+                      <React.Fragment key={p}>
+                        {idx > 0 && arr[idx - 1] !== p - 1 && <span style={{ color: 'var(--text-secondary)', alignSelf: 'center' }}>...</span>}
+                        <button
+                          className={`btn ${p === currentPage ? '' : 'btn-outline'}`}
+                          onClick={() => setCurrentPage(p)}
+                          style={{ padding: '0.4rem 0.8rem', minWidth: '36px' }}
+                        >
+                          {p}
+                        </button>
+                      </React.Fragment>
+                    ))
+                  }
+                </div>
+                <button
+                  className="btn btn-outline"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  style={{ padding: '0.4rem 0.8rem', opacity: currentPage === totalPages ? 0.5 : 1 }}
+                >
+                  Succ &gt;
+                </button>
+              </div>
+            </div>
+          )}
         </>
       </div>
     </div>

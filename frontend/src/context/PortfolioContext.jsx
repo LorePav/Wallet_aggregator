@@ -188,6 +188,7 @@ export const PortfolioProvider = ({ children }) => {
   const [txSearchTerm, setTxSearchTerm] = useState('');
   const [txTypeFilter, setTxTypeFilter] = useState('');
   const [txAssetFilter, setTxAssetFilter] = useState('');
+  const [txPeriodFilter, setTxPeriodFilter] = useState('30d');
   const [customAssetOrder, setCustomAssetOrder] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('customAssetOrder')) || [];
@@ -783,6 +784,26 @@ export const PortfolioProvider = ({ children }) => {
       sortableTxs = sortableTxs.filter(tx => tx.symbol === txAssetFilter);
     }
 
+    if (txPeriodFilter !== 'all') {
+      const now = new Date();
+      let cutoff = new Date();
+      // Reset the time portion so today's transactions aren't partially filtered out
+      cutoff.setHours(0, 0, 0, 0);
+      now.setHours(23, 59, 59, 999);
+
+      if (txPeriodFilter === '30d') {
+        cutoff.setDate(now.getDate() - 30);
+      } else if (txPeriodFilter === 'ytd') {
+        cutoff = new Date(now.getFullYear(), 0, 1);
+      } else if (txPeriodFilter === '1y') {
+        cutoff.setFullYear(now.getFullYear() - 1);
+      }
+      sortableTxs = sortableTxs.filter(tx => {
+        const txDate = new Date(tx.date);
+        return txDate >= cutoff && txDate <= now;
+      });
+    }
+
     if (txSortConfig.key) {
       sortableTxs.sort((a, b) => {
         let aVal = a[txSortConfig.key];
@@ -804,7 +825,7 @@ export const PortfolioProvider = ({ children }) => {
       });
     }
     return sortableTxs;
-  }, [transactions, txSortConfig, txSearchTerm, txTypeFilter, txAssetFilter]);
+  }, [transactions, txSortConfig, txSearchTerm, txTypeFilter, txAssetFilter, txPeriodFilter]);
 
   // Dati per Grafico Categorie - Convertiti dinamicamente
   const categoryMap = combinedPortfolio.reduce((acc, item) => {
@@ -1277,6 +1298,8 @@ export const PortfolioProvider = ({ children }) => {
       totalValue,
       transactions,
       txAssetFilter,
+      txPeriodFilter,
+      setTxPeriodFilter,
       txSearchTerm,
       txTypeFilter,
       visuallyHiddenAssets,
