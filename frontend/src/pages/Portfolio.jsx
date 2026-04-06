@@ -20,7 +20,20 @@ const Portfolio = () => {
             <h2 style={{ margin: 0 }}>💼 Portafoglio Asset Corrente</h2>
             {ctx.sortConfig.key === 'manual' && <span style={{ fontSize: '0.8rem', padding: '4px 8px', background: 'var(--accent)', borderRadius: '12px', color: 'white' }}>Ordinamento Manuale Base</span>}
           </div>
-          <span style={{ fontSize: '1.4rem', transition: 'transform 0.3s', transform: ctx.sections.portfolio ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <select
+              className="form-control"
+              value={ctx.displayCurrency}
+              onChange={(e) => { e.stopPropagation(); ctx.setDisplayCurrency(e.target.value); localStorage.setItem('displayCurrency', e.target.value); }}
+              onClick={(e) => e.stopPropagation()}
+              style={{ padding: '0.4rem 0.8rem', width: 'auto', backgroundColor: 'rgba(255,255,255,0.05)', fontWeight: 'bold', fontSize: '0.85rem' }}
+              title="Cambia valuta di visualizzazione"
+            >
+              <option value="EUR">🇪🇺 EUR</option>
+              <option value="USD">🇺🇸 USD</option>
+            </select>
+            <span style={{ fontSize: '1.4rem', transition: 'transform 0.3s', transform: ctx.sections.portfolio ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+          </div>
         </div>
         {ctx.sections.portfolio && (
           <>

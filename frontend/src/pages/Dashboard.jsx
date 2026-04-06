@@ -1,10 +1,41 @@
-import React from 'react';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, Bar, Scatter, ReferenceLine, PieChart, Pie, Cell, Tooltip, Line, Brush } from 'recharts';
+import React, { useState } from 'react';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar, ReferenceLine, Cell, LineChart, Line, ComposedChart, Brush, PieChart, Pie, Scatter } from 'recharts';
 import { usePortfolioContext } from '../context/PortfolioContext';
 
 
+const OverrideDot = (props) => {
+  const { cx, cy, payload } = props;
+  if (!cx || !cy) return null;
+  if (payload?.isOverridden) {
+    return <circle cx={cx} cy={cy} r={6} fill="#f59e0b" stroke="white" strokeWidth={2} style={{ filter: 'drop-shadow(0 0 4px #f59e0b)' }} />;
+  }
+  return null;
+};
+
 const Dashboard = () => {
   const ctx = usePortfolioContext();
+  const [overridePopup, setOverridePopup] = useState(null);
+  const [overrideValue, setOverrideValue] = useState('');
+
+  // handleDotClick receives the Recharts dot event data directly
+  const handleDotClick = (dotData) => {
+    const payload = dotData?.payload || dotData;
+    if (!payload || payload.isLive) return;
+    const dateStr = (payload.date || '').split('T')[0];
+    if (!dateStr) return;
+    setOverrideValue(parseFloat(payload.total_value || 0).toFixed(2));
+    setOverridePopup({ dateStr, originalValue: payload.total_value, note: payload.overrideNote || '' });
+  };
+
+  const handleSaveOverride = () => {
+    if (!overridePopup) return;
+    const val = parseFloat(overrideValue);
+    if (!isNaN(val) && val > 0) {
+      ctx.setSnapshotOverride(overridePopup.dateStr, val, overridePopup.note);
+    }
+    setOverridePopup(null);
+  };
+
   return (
     <div className="dashboard-page">
       <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -26,14 +57,7 @@ const Dashboard = () => {
             <option value="EUR">🇪🇺 EUR</option>
             <option value="USD">🇺🇸 USD</option>
           </select>
-          <button
-            className="btn btn-outline"
-            onClick={() => ctx.setIsSettingsOpen(true)}
-            style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center' }}
-            title="Impostazioni"
-          >
-            ⚙️ Menu
-          </button>
+
           <button
             className={`btn ${ctx.autoRefresh ? 'pulse-button' : 'btn-outline'}`}
             onClick={() => ctx.setAutoRefresh(!ctx.autoRefresh)}
@@ -254,12 +278,48 @@ const Dashboard = () => {
               </div>
               {ctx.sections.chart && (
                 <div style={{ width: '100%' }}>
+                  {/* Override Popup */}
+                  {overridePopup && (
+                    <div style={{
+                      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                      background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }} onClick={() => setOverridePopup(null)}>
+                      <div className="glass-panel" style={{
+                        padding: '1.5rem', minWidth: '320px', borderRadius: '16px',
+                        border: '1px solid rgba(255,255,255,0.15)'
+                      }} onClick={e => e.stopPropagation()}>
+                        <h3 style={{ margin: '0 0 1rem 0', color: '#f59e0b' }}>✏️ Modifica Valore Visivo</h3>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0 0 1rem 0' }}>{overridePopup.dateStr}</p>
+                        <div style={{ marginBottom: '1rem' }}>
+                          <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Valore visivo (€)</label>
+                          <input type="number" step="0.01" value={overrideValue} onChange={e => setOverrideValue(e.target.value)} className="form-control" autoFocus style={{ width: '100%' }} />
+                        </div>
+                        <div style={{ marginBottom: '1rem' }}>
+                          <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Nota (opzionale)</label>
+                          <input type="text" value={overridePopup.note} onChange={e => setOverridePopup(prev => ({ ...prev, note: e.target.value }))} className="form-control" placeholder="es. Correzione valuta..." style={{ width: '100%' }} />
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button className="btn" onClick={handleSaveOverride} style={{ background: '#f59e0b', flex: 1 }}>💾 Salva</button>
+                          <button className="btn btn-outline" onClick={() => { ctx.removeSnapshotOverride(overridePopup.dateStr); setOverridePopup(null); }}>🗑️ Ripristina</button>
+                          <button className="btn btn-outline" onClick={() => setOverridePopup(null)}>Annulla</button>
+                        </div>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.75rem 0 0 0' }}>⚠️ Modifica solo visiva — i tuoi dati reali restano invariati.</p>
+                      </div>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', justifyContent: 'space-between', flexWrap: 'wrap', alignItems: 'center' }}>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button className={`btn ${ctx.chartMode === 'absolute' ? '' : 'btn-outline'}`} onClick={(e) => { e.stopPropagation(); ctx.setChartMode('absolute'); }} style={{ padding: '4px 12px', fontSize: '0.85rem' }}>💶 Assoluto</button>
                       <button className={`btn ${ctx.chartMode === 'percentage' ? '' : 'btn-outline'}`} onClick={(e) => { e.stopPropagation(); ctx.setChartMode('percentage'); }} style={{ padding: '4px 12px', fontSize: '0.85rem' }}>% TWR Rendimento</button>
+                      {ctx.hasSnapshotOverrides && (
+                        <button className="btn btn-outline" onClick={() => ctx.clearAllSnapshotOverrides()} style={{ padding: '4px 12px', fontSize: '0.85rem', borderColor: '#f59e0b', color: '#f59e0b' }} title="Ripristina tutti i valori reali">
+                          🔄 Azzera Override
+                        </button>
+                      )}
                     </div>
-                    <div style={{ display: 'flex', gap: '4px' }}>
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                      {ctx.hasSnapshotOverrides && <span title="Ci sono punti modificati" style={{ color: '#f59e0b', fontSize: '0.8rem', marginRight: '4px' }}>✏️ modifiche attive</span>}
                       {['1G', '1S', '1M', '3M', '6M', '1Y', 'ALL'].map(period => (
                         <button
                           key={period}
@@ -274,7 +334,7 @@ const Dashboard = () => {
                   </div>
                   <div style={{ width: '100%', height: 350 }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <ComposedChart key={`${ctx.historyPeriod}-${ctx.chartMode}`} data={ctx.filteredSnapshots} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
+                      <ComposedChart key={`${ctx.historyPeriod}-${ctx.chartMode}`} data={ctx.filteredSnapshots} margin={{ top: 10, right: 30, left: 20, bottom: 0 }} style={{ cursor: 'crosshair' }}>
                         <defs>
                           <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="var(--success)" stopOpacity={0.4} />
@@ -350,10 +410,9 @@ const Dashboard = () => {
                               hide={true} // Hidden axis just for the Bar scale
                             />
                             <YAxis yAxisId="events" domain={[-1, 10]} hide={true} />
-                            <Area yAxisId="left" type="monotone" dataKey="total_invested" stroke="var(--accent)" fillOpacity={1} fill="url(#colorInvested)" name="total_invested" isAnimationActive={ctx.historyPeriod === 'ALL' ? false : true} dot={['1G', '1S', '1M'].includes(ctx.historyPeriod) ? { r: 3, fill: 'var(--surface-hover)', strokeWidth: 2 } : false} activeDot={{ r: 6, strokeWidth: 0 }} />
-                            <Area yAxisId="left" type="monotone" dataKey="total_value" stroke="var(--success)" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" name="total_value" isAnimationActive={ctx.historyPeriod === 'ALL' ? false : true} dot={['1G', '1S', '1M'].includes(ctx.historyPeriod) ? { r: 4, strokeWidth: 2 } : false} activeDot={{ r: 7, strokeWidth: 0 }} />
-                            {/* Volumi stile crypto per depositi */}
-                            <Bar yAxisId="right" dataKey="daily_deposit" fill="rgba(59, 130, 246, 0.3)" barSize={20} />
+                            <Area yAxisId="left" type="monotone" dataKey="total_invested" stroke="var(--accent)" strokeWidth={2} fillOpacity={1} fill="url(#colorInvested)" name="total_invested" isAnimationActive={ctx.historyPeriod === 'ALL' ? false : true} dot={['1G', '1S', '1M', '3M'].includes(ctx.historyPeriod) ? { r: 2, fill: 'var(--accent)', strokeWidth: 0 } : false} activeDot={{ r: 5, strokeWidth: 0 }} />
+                            <Area yAxisId="left" type="monotone" dataKey="total_value" stroke="var(--success)" strokeWidth={4} fillOpacity={1} fill="url(#colorTotal)" name="total_value" isAnimationActive={ctx.historyPeriod === 'ALL' ? false : true} dot={['1G', '1S', '1M', '3M'].includes(ctx.historyPeriod) ? { r: 3, fill: 'var(--success)', strokeWidth: 0 } : false} activeDot={{ r: 8, stroke: 'white', strokeWidth: 2, cursor: 'pointer', onClick: (e, data) => handleDotClick(data) }} />
+                            <Bar yAxisId="right" dataKey="daily_deposit" fill="rgba(59, 130, 246, 0.2)" barSize={15} radius={[2, 2, 0, 0]} />
                           </>
                         ) : (
                           <>
@@ -367,14 +426,24 @@ const Dashboard = () => {
                             <YAxis yAxisId="events" domain={[-1, 10]} hide={true} />
                             <ReferenceLine yAxisId="twr" y={0} stroke="rgba(255,255,255,0.2)" strokeDasharray="3 3" />
                             {ctx.benchmarkData.length > 0 && (
-                              <Line yAxisId="twr" type="monotone" dataKey="benchmark_percent" stroke="rgba(255,255,255,0.3)" strokeWidth={2} dot={['1G', '1S', '1M'].includes(ctx.historyPeriod) ? { r: 3 } : false} strokeDasharray="5 5" name="S&P 500" isAnimationActive={ctx.historyPeriod === 'ALL' ? false : true} />
+                              <Line yAxisId="twr" type="monotone" dataKey="benchmark_percent" stroke="rgba(255,255,255,0.25)" strokeWidth={2} dot={false} strokeDasharray="5 5" name="S&P 500" isAnimationActive={ctx.historyPeriod === 'ALL' ? false : true} />
                             )}
-                            <Area yAxisId="twr" type="monotone" dataKey="twr_percent" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorTwr)" name="TWR%" isAnimationActive={ctx.historyPeriod === 'ALL' ? false : true} dot={['1G', '1S', '1M'].includes(ctx.historyPeriod) ? { r: 4, strokeWidth: 2 } : false} activeDot={{ r: 7, strokeWidth: 0 }} />
+                            <Area yAxisId="twr" type="monotone" dataKey="twr_percent" stroke="#8b5cf6" strokeWidth={4} fillOpacity={1} fill="url(#colorTwr)" name="TWR%" isAnimationActive={ctx.historyPeriod === 'ALL' ? false : true} dot={['1G', '1S', '1M', '3M'].includes(ctx.historyPeriod) ? { r: 3, fill: '#8b5cf6', strokeWidth: 0 } : false} activeDot={{ r: 8, stroke: 'white', strokeWidth: 2, cursor: 'pointer', onClick: (e, data) => handleDotClick(data) }} />
                           </>
+                        )}
+                        {ctx.historyPeriod === 'ALL' && ctx.filteredSnapshots.length > 30 && (
+                          <Brush
+                            dataKey="time"
+                            height={30}
+                            stroke="var(--accent)"
+                            fill="rgba(255,255,255,0.05)"
+                            tickFormatter={() => ''}
+                          />
                         )}
 
                         <Scatter yAxisId="events" dataKey="has_event" fill="#f59e0b" shape="circle" style={{ filter: 'url(#glow)', cursor: 'pointer' }} r={5} />
-
+                        {/* Punti arancioni per i valori con override */}
+                        <Area yAxisId={ctx.chartMode === 'absolute' ? 'left' : 'twr'} dataKey={ctx.chartMode === 'absolute' ? 'total_value' : 'twr_percent'} dot={<OverrideDot />} activeDot={false} stroke="none" fill="none" />
                         <Tooltip content={<ctx.CustomHistoryTooltip />} />
                         <Brush
                           dataKey="time"
@@ -399,6 +468,9 @@ const Dashboard = () => {
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '6px', textAlign: 'right' }}>
+                    💡 Clicca su un punto del grafico per modificarne il valore visivamente
+                  </p>
                 </div>
               )}
             </div>
@@ -406,7 +478,7 @@ const Dashboard = () => {
 
           {/* Grafici a Torta (Statistiche) */}
           <div style={{ marginBottom: '2.5rem' }}>
-            <div className="glass-panel" style={{ padding: '1rem 1.5rem', marginBottom: ctx.sections.pies ? '0' : '0', borderRadius: ctx.sections.pies ? '16px 16px 0 0' : '16px', cursor: 'pointer' }} onClick={() => ctx.toggleSection('pies')}>
+            <div className="glass-panel" style={{ padding: '1rem 1.5rem', borderRadius: ctx.sections.pies ? '16px 16px 0 0' : '16px', cursor: 'pointer' }} onClick={() => ctx.toggleSection('pies')}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ margin: 0 }}>🥧 Diversificazione Portafoglio</h3>
                 <span style={{ fontSize: '1.4rem', transition: 'transform 0.3s', transform: ctx.sections.pies ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
@@ -703,4 +775,5 @@ const Dashboard = () => {
     </div>
   );
 };
+
 export default Dashboard;
