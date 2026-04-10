@@ -20,7 +20,10 @@ const Sidebar = () => {
           📜 Transazioni
         </NavLink>
         <div style={{ flex: 1 }}></div>
-        <NavLink to="/settings" className={({isActive}) => isActive ? "nav-link active" : "nav-link"} style={{ marginTop: 'auto' }}>
+        <NavLink to="/account" className={({isActive}) => isActive ? "nav-link active" : "nav-link"} style={{ marginTop: 'auto' }}>
+          👤 Account
+        </NavLink>
+        <NavLink to="/settings" className={({isActive}) => isActive ? "nav-link active" : "nav-link"} style={{ marginTop: '0.5rem' }}>
           ⚙️ Impostazioni
         </NavLink>
       </nav>
