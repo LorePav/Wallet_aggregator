@@ -48,6 +48,7 @@ const Login = () => {
 
   const handleOAuthLogin = async (provider) => {
     try {
+      setError('');
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -78,7 +79,7 @@ const Login = () => {
               <button type="button" onClick={() => handleOAuthLogin('google')} className="panel-module" style={{ flex: 1, padding: '0.75rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.1)' }}>
                 Google
               </button>
-              <button type="button" onClick={() => handleOAuthLogin('twitter')} className="panel-module" style={{ flex: 1, padding: '0.75rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <button type="button" onClick={() => handleOAuthLogin('x')} className="panel-module" style={{ flex: 1, padding: '0.75rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.1)' }}>
                 X
               </button>
             </div>

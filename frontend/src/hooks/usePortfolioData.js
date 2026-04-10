@@ -51,7 +51,7 @@ export const usePortfolioData = (uiState) => {
 
     const fetchSparkline = useCallback(async (symbol) => {
         try {
-            const res = await axios.get(`${API_URL}/api/asset-history/${symbol}?period=7d`);
+            const res = await axios.get(`${API_URL}/api/asset-history/${symbol}?period=5d`);
             setSparklineData(prev => ({ ...prev, [symbol]: res.data }));
         } catch (err) {
             // Ignora errore per singolo asset
