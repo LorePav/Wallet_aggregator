@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { usePortfolioContext } from '../context/PortfolioContext';
 
-const Account = () => {
+const AccountSettings = () => {
   const { themeColor } = usePortfolioContext();
   const [user, setUser] = useState(null);
   const [identities, setIdentities] = useState([]);
@@ -239,7 +239,6 @@ const Account = () => {
       </div>
     </>
   );
-  );
 };
 
-export default Account;
+export default AccountSettings;
