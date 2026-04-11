@@ -10,7 +10,6 @@ import Transactions from './pages/Transactions';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import UpdatePassword from './pages/UpdatePassword';
-import Account from './pages/Account';
 
 const App = () => {
   const [session, setSession] = useState(null);
@@ -71,7 +70,6 @@ const App = () => {
             <Route index element={<Dashboard />} />
             <Route path="portfolio" element={<Portfolio />} />
             <Route path="transactions" element={<Transactions />} />
-            <Route path="account" element={<Account />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>

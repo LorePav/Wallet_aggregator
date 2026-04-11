@@ -1,6 +1,7 @@
 import React from 'react';
 import axios from 'axios';
 import { usePortfolioContext } from '../context/PortfolioContext';
+import AccountSettings from '../components/AccountSettings';
 
 const Settings = () => {
   const {
@@ -58,6 +59,10 @@ const Settings = () => {
       
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem' }}>
         
+        {/* Pannello Profilo e Identità */}
+        <AccountSettings />
+        
+
         {/* Preferenze Generali */}
         <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column' }}>
           <h3 style={{ fontSize: '1.2rem', marginBottom: '1.5rem', color: 'var(--accent)', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Preferenze Generali</h3>
