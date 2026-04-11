@@ -2,6 +2,7 @@ import React from 'react';
 import axios from 'axios';
 import { usePortfolioContext } from '../context/PortfolioContext';
 import AccountSettings from '../components/AccountSettings';
+import PageTransition from '../components/PageTransition';
 
 const Settings = () => {
   const {
@@ -54,7 +55,8 @@ const Settings = () => {
   };
 
   return (
-    <div className="settings-page">
+    <PageTransition>
+      <div className="settings-page">
       <h1 style={{ marginBottom: '2.5rem' }}>⚙️ Impostazioni App</h1>
       
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem' }}>
@@ -231,7 +233,8 @@ const Settings = () => {
         </div>
 
       </div>
-    </div>
+      </div>
+    </PageTransition>
   );
 };
 

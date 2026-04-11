@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, Bar, Scatter, ReferenceLine, PieChart, Pie, Cell, Tooltip, Line } from 'recharts';
 import { usePortfolioContext } from '../context/PortfolioContext';
+import PageTransition from '../components/PageTransition';
 
 
 const Portfolio = () => {
@@ -12,7 +13,8 @@ const Portfolio = () => {
   const hiddenPortfolio = ctx.sortedPortfolio.filter(item => ctx.visuallyHiddenAssets[item.uniqueId]);
 
   return (
-    <div className="portfolio-page">
+    <PageTransition>
+      <div className="portfolio-page">
       {/* Tabella degli Asset */}
       <div className="glass-panel" style={{ marginBottom: '2rem' }}>
         <div onClick={() => ctx.toggleSection('portfolio')} style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: ctx.sections.portfolio ? '1.5rem' : 0 }}>
@@ -278,6 +280,7 @@ const Portfolio = () => {
         )}
       </div>
     </div>
+    </PageTransition>
   );
 };
 export default Portfolio;

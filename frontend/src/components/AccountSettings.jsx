@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { usePortfolioContext } from '../context/PortfolioContext';
+import SpotlightCard from './SpotlightCard';
 
 const AccountSettings = () => {
   const { themeColor } = usePortfolioContext();
@@ -117,7 +118,7 @@ const AccountSettings = () => {
       )}
 
       {/* Box Dati Generali Utente */}
-      <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column' }}>
+      <SpotlightCard style={{ display: 'flex', flexDirection: 'column' }}>
         <h3 style={{ fontSize: '1.2rem', marginBottom: '1.5rem', color: themeColor, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
           Profilo & Account
         </h3>
@@ -164,10 +165,10 @@ const AccountSettings = () => {
             🚪 Disconnetti (Logout)
           </button>
         </div>
-      </div>
+      </SpotlightCard>
 
       {/* Gestione Identità (Social Logins) */}
-      <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column' }}>
+      <SpotlightCard style={{ display: 'flex', flexDirection: 'column' }}>
         <h3 style={{ fontSize: '1.2rem', marginBottom: '1.5rem', color: themeColor, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
           Connessioni e Accesso (SSO)
         </h3>
@@ -236,7 +237,7 @@ const AccountSettings = () => {
             </button>
           </div>
         </div>
-      </div>
+      </SpotlightCard>
     </>
   );
 };

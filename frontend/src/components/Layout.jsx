@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import Sidebar from './Sidebar';
 import { usePortfolioContext } from '../context/PortfolioContext';
@@ -11,6 +12,8 @@ const Layout = () => {
     formData, setFormData, handleInputChange, handleSubmit,
     editingTxId, accountBalances
   } = usePortfolioContext();
+
+  const location = useLocation();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -56,8 +59,12 @@ const Layout = () => {
     <div className="app-layout">
       <Sidebar />
       <main className="main-content">
-        <div className="app-container" style={{ margin: 0, width: '100%', maxWidth: 'none', padding: '2rem 3rem' }}>
-          <Outlet />
+        <div className="app-container" style={{ margin: 0, width: '100%', maxWidth: 'none', padding: '2rem 3rem', display: 'flex', flexDirection: 'column' }}>
+          <AnimatePresence mode="wait">
+            <React.Fragment key={location.pathname}>
+              <Outlet />
+            </React.Fragment>
+          </AnimatePresence>
         </div>
       </main>
 

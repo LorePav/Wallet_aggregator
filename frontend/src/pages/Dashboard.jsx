@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar, ReferenceLine, Cell, LineChart, Line, ComposedChart, Brush, PieChart, Pie, Scatter } from 'recharts';
 import { usePortfolioContext } from '../context/PortfolioContext';
+import PageTransition from '../components/PageTransition';
+import SpotlightCard from '../components/SpotlightCard';
+import SkeletonLoader from '../components/SkeletonLoader';
+import CountUp from 'react-countup';
 
 
 const OverrideDot = (props) => {
@@ -37,7 +41,8 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="dashboard-page">
+    <PageTransition>
+      <div className="dashboard-page">
       <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1>La Mia Dashboard</h1>
@@ -82,20 +87,29 @@ const Dashboard = () => {
       </div>
 
       {ctx.loading ? (
-        <div style={{ textAlign: 'center', padding: '5rem', fontSize: '1.2rem', color: 'var(--accent)' }}>
-          Caricamento Dati e Prezzi Live in corso...
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          <div className="summary-grid">
+            <SkeletonLoader style={{ height: '130px' }} />
+            <SkeletonLoader style={{ height: '130px' }} />
+            <SkeletonLoader style={{ height: '130px' }} />
+            <SkeletonLoader style={{ height: '130px' }} />
+          </div>
+          <SkeletonLoader style={{ height: '400px', borderRadius: '16px' }} />
+          <SkeletonLoader style={{ height: '400px', borderRadius: '16px' }} />
         </div>
       ) : (
         <>
 
           {/* Griglia Valori Globali */}
           <div className="summary-grid">
-            <div className="glass-panel summary-card">
+            <SpotlightCard className="summary-card">
               <h3>Valore Totale MTM</h3>
-              <div className="value">{ctx.formatCurrency(ctx.totalValue, ctx.displayCurrency)}</div>
-            </div>
+              <div className="value gradient-text">
+                <CountUp start={0} end={ctx.totalValue || 0} decimals={2} duration={1.5} separator="." decimal="," prefix={ctx.displayCurrency === 'USD' ? '$' : '€'} />
+              </div>
+            </SpotlightCard>
 
-            <div className="glass-panel summary-card" style={{ padding: '1.2rem' }}>
+            <SpotlightCard className="summary-card" style={{ padding: '1.2rem' }}>
               <h3><span style={{ fontSize: '1.2rem', marginRight: '8px' }}>🏦</span> Saldi per Conto</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
                 {Object.keys(ctx.accountBalances).length === 0 ? (
@@ -193,35 +207,38 @@ const Dashboard = () => {
                   })()
                 )}
               </div>
-            </div>
+            </SpotlightCard>
 
-            <div className="glass-panel summary-card">
+            <SpotlightCard className="summary-card">
               <h3>Totale Investito</h3>
-              <div className="value">{ctx.formatCurrency(ctx.totalInvested, ctx.displayCurrency)}</div>
-            </div>
-            <div className="glass-panel summary-card">
+              <div className="value">
+                <CountUp start={0} end={ctx.totalInvested || 0} decimals={2} duration={1.5} separator="." decimal="," prefix={ctx.displayCurrency === 'USD' ? '$' : '€'} />
+              </div>
+            </SpotlightCard>
+            <SpotlightCard className="summary-card">
               <h3>Guadagno Netto Totale</h3>
               <div className={`value ${ctx.totalGain >= 0 ? 'text-success' : 'text-danger'}`}>
-                {ctx.totalGain >= 0 ? '+' : ''}{ctx.formatCurrency(ctx.totalGain, ctx.displayCurrency)}
+                {ctx.totalGain >= 0 ? '+' : ''}
+                <CountUp start={0} end={ctx.totalGain || 0} decimals={2} duration={1.5} separator="." decimal="," prefix={ctx.displayCurrency === 'USD' ? '$' : '€'} />
                 <span style={{ fontSize: '1.1rem', marginLeft: '0.8rem', opacity: 0.9 }}>
-                  ({ctx.totalGainPercent > 0 ? '+' : ''}{ctx.totalGainPercent.toFixed(2)}%)
+                  ({ctx.totalGainPercent > 0 ? '+' : ''}<CountUp start={0} end={ctx.totalGainPercent || 0} decimals={2} duration={1.5} suffix="%" />)
                 </span>
               </div>
-            </div>
+            </SpotlightCard>
           </div>
 
           {/* Box Rendite Passive */}
           {ctx.passiveIncomeStats && (
             <div style={{ marginBottom: '2.5rem' }}>
-              <div className="glass-panel" style={{ padding: '1rem 1.5rem', marginBottom: ctx.sections.passive ? '0' : '0', borderRadius: ctx.sections.passive ? '16px 16px 0 0' : '16px', cursor: 'pointer' }} onClick={() => ctx.toggleSection('passive')}>
+              <SpotlightCard style={{ padding: '1rem 1.5rem', marginBottom: ctx.sections.passive ? '0' : '0', borderRadius: ctx.sections.passive ? '16px 16px 0 0' : '16px', cursor: 'pointer' }} onClick={() => ctx.toggleSection('passive')}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h3 style={{ margin: 0 }}>💸 Rendita Passiva ({ctx.passiveIncomeStats.year})</h3>
                   <span style={{ fontSize: '1.4rem', transition: 'transform 0.3s', transform: ctx.sections.passive ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
                 </div>
-              </div>
+              </SpotlightCard>
 
               {ctx.sections.passive && (
-                <div className="glass-panel" style={{ borderRadius: '0 0 16px 16px', borderTop: 'none', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <div className="spotlight-card" style={{ borderRadius: '0 0 16px 16px', borderTop: 'none', borderTop: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'var(--glass-bg)' }}>
                   <div className="dashboard-grid" style={{ marginBottom: '1.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
                     <div className="summary-card" style={{ background: 'rgba(59, 130, 246, 0.1)' }}>
                       <div className="text-secondary">Totale Dividendi</div>
@@ -259,7 +276,7 @@ const Dashboard = () => {
 
           {/* Grafico Andamento nel Tempo */}
           {ctx.snapshots.length > 0 && (
-            <div className="glass-panel" style={{ marginBottom: '2.5rem' }}>
+            <SpotlightCard style={{ marginBottom: '2.5rem' }}>
               <div onClick={() => ctx.toggleSection('chart')} style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: ctx.sections.chart ? '1.5rem' : 0 }}>
                   <h3 style={{ margin: 0 }}>📈 Andamento Storico Portafoglio</h3>
@@ -285,7 +302,7 @@ const Dashboard = () => {
                       background: 'rgba(0,0,0,0.5)', zIndex: 1000,
                       display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }} onClick={() => setOverridePopup(null)}>
-                      <div className="glass-panel" style={{
+                      <SpotlightCard style={{
                         padding: '1.5rem', minWidth: '320px', borderRadius: '16px',
                         border: '1px solid rgba(255,255,255,0.15)'
                       }} onClick={e => e.stopPropagation()}>
@@ -305,7 +322,7 @@ const Dashboard = () => {
                           <button className="btn btn-outline" onClick={() => setOverridePopup(null)}>Annulla</button>
                         </div>
                         <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.75rem 0 0 0' }}>⚠️ Modifica solo visiva — i tuoi dati reali restano invariati.</p>
-                      </div>
+                      </SpotlightCard>
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', justifyContent: 'space-between', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -473,20 +490,20 @@ const Dashboard = () => {
                   </p>
                 </div>
               )}
-            </div>
+            </SpotlightCard>
           )}
 
           {/* Grafici a Torta (Statistiche) */}
           <div style={{ marginBottom: '2.5rem' }}>
-            <div className="glass-panel" style={{ padding: '1rem 1.5rem', borderRadius: ctx.sections.pies ? '16px 16px 0 0' : '16px', cursor: 'pointer' }} onClick={() => ctx.toggleSection('pies')}>
+            <SpotlightCard style={{ padding: '1rem 1.5rem', borderRadius: ctx.sections.pies ? '16px 16px 0 0' : '16px', cursor: 'pointer', marginBottom: ctx.sections.pies ? '2px' : 0 }} onClick={() => ctx.toggleSection('pies')}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ margin: 0 }}>🥧 Diversificazione Portafoglio</h3>
                 <span style={{ fontSize: '1.4rem', transition: 'transform 0.3s', transform: ctx.sections.pies ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
               </div>
-            </div>
+            </SpotlightCard>
             {ctx.sections.pies && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                <div className="glass-panel" style={{ position: 'relative' }}>
+                <SpotlightCard style={{ position: 'relative' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <h3 style={{ margin: 0, textAlign: 'left' }}>Diversificazione per Asset</h3>
                     <button
@@ -627,9 +644,9 @@ const Dashboard = () => {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                </div>
+                </SpotlightCard>
 
-                <div className="glass-panel" style={{ position: 'relative' }}>
+                <SpotlightCard style={{ position: 'relative' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <h3 style={{ margin: 0, textAlign: 'left' }}>Allocazione per Categoria</h3>
                     <button
@@ -766,13 +783,14 @@ const Dashboard = () => {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-                </div>
+                </SpotlightCard>
               </div>
             )}
           </div>
         </>
       )}
     </div>
+    </PageTransition>
   );
 };
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, Bar, Scatter, ReferenceLine, PieChart, Pie, Cell, Tooltip, Line } from 'recharts';
 import { usePortfolioContext } from '../context/PortfolioContext';
+import PageTransition from '../components/PageTransition';
 
 
 const Transactions = () => {
@@ -18,7 +19,8 @@ const Transactions = () => {
   const currentTxs = ctx.sortedTransactions.slice(startIndex, startIndex + itemsPerPage);
 
   return (
-    <div className="transactions-page">
+    <PageTransition>
+      <div className="transactions-page">
       {/* Tabella Cronologia Transazioni */}
       <div className="glass-panel" style={{ marginTop: '2rem' }}>
         <h2 style={{ margin: 0, marginBottom: '1.5rem' }}>📜 Cronologia Transazioni</h2>
@@ -200,6 +202,7 @@ const Transactions = () => {
         </>
       </div>
     </div>
+    </PageTransition>
   );
 };
 export default Transactions;
