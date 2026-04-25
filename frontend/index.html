@@ -4,7 +4,19 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <title>My Portfolio</title>
+    <!-- Anti-FOUC: applica il tema salvato prima che React monti -->
+    <script>
+      (function () {
+        var r = document.documentElement;
+        var c = localStorage.getItem('themeColor') || '#f59e0b';
+        var b = localStorage.getItem('themeBg')    || '#0b0f19';
+        var f = localStorage.getItem('themeFont')  || "'Inter', sans-serif";
+        r.style.setProperty('--accent',      c);
+        r.style.setProperty('--bg-color',    b);
+        r.style.setProperty('--font-family', f);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

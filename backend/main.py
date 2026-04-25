@@ -184,6 +184,92 @@ def read_benchmark_history(period: str = "5y"):
         raise HTTPException(status_code=404, detail="Impossibile recuperare i dati del benchmark (S&P 500).")
     return history
 
+# --- ENDPOINTS ANALYTICS AVANZATI ---
+
+@app.get("/api/analytics/correlation")
+def read_correlation_matrix(
+    period: str = "1y",
+    db: Session = Depends(get_db),
+    user_data: dict = Depends(verify_token)
+):
+    """
+    Matrice di correlazione dei rendimenti giornalieri tra tutti gli asset in portafoglio.
+    Param period: "3mo" | "6mo" | "1y" | "2y" | "5y"
+    """
+    user_id = user_data["id"]
+    import analytics
+
+    # Recupera i dati del portafoglio per estrarre i simboli attivi
+    portfolio_data = portfolio.get_portfolio_data(db, user_id)
+
+    # Considera solo asset con quantità > 0 e non-cash
+    active_symbols = [
+        item["symbol"] for item in portfolio_data
+        if item["quantity"] > 0.000001 and item["symbol"] not in ["EUR", "USD", "GBP", "CHF"]
+    ]
+
+    if len(active_symbols) < 2:
+        raise HTTPException(status_code=400, detail="Servono almeno 2 asset attivi per calcolare la correlazione.")
+
+    # Risolvi i ticker Yahoo (es. ENI → ENI.MI, BTCUSD → BTC-USD)
+    yahoo_symbols = analytics.resolve_yahoo_symbols(active_symbols)
+
+    result = analytics.get_correlation_matrix(yahoo_symbols, period=period)
+    # Remap le label ai simboli originali dell'utente per la UI
+    label_map = dict(zip(yahoo_symbols, active_symbols))
+    result["labels"] = [label_map.get(l, l) for l in result["labels"]]
+    return result
+
+
+@app.get("/api/analytics/drawdown")
+def read_portfolio_drawdown(
+    db: Session = Depends(get_db),
+    user_data: dict = Depends(verify_token)
+):
+    """
+    Serie temporale del drawdown storico del portafoglio (calo % rispetto al picco precedente).
+    """
+    user_id = user_data["id"]
+    import analytics
+
+    snapshots = db.query(models.DailySnapshot).filter(
+        models.DailySnapshot.user_id == user_id
+    ).order_by(models.DailySnapshot.date).all()
+
+    snap_list = [
+        {"date": str(s.date), "total_value": s.total_value}
+        for s in snapshots
+    ]
+
+    return analytics.get_portfolio_drawdown(snap_list)
+
+
+@app.get("/api/analytics/risk-metrics")
+def read_risk_metrics(
+    period: str = "1y",
+    db: Session = Depends(get_db),
+    user_data: dict = Depends(verify_token)
+):
+    """
+    Calcola le metriche di rischio del portafoglio:
+    Sharpe Ratio, Beta vs S&P500, Alpha, Volatilità annualizzata, Max Drawdown, Rendimento totale.
+    Param period: periodo per scaricare il benchmark S&P500, default "1y".
+    """
+    user_id = user_data["id"]
+    import analytics
+
+    snapshots = db.query(models.DailySnapshot).filter(
+        models.DailySnapshot.user_id == user_id
+    ).order_by(models.DailySnapshot.date).all()
+
+    snap_list = [
+        {"date": str(s.date), "total_value": s.total_value}
+        for s in snapshots
+    ]
+
+    return analytics.get_risk_metrics(snap_list, period=period)
+
+
 @app.delete("/api/reset")
 def reset_portfolio(db: Session = Depends(get_db), user_data: dict = Depends(verify_token)):
     user_id = user_data["id"]

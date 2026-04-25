@@ -140,7 +140,7 @@ const Login = () => {
           {error && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', margin: 0, textAlign: 'center', padding: '0.5rem', background: 'rgba(255,0,0,0.1)', borderRadius: '6px' }}>{error}</p>}
           {message && <p style={{ color: 'var(--success)', fontSize: '0.85rem', margin: 0, textAlign: 'center', padding: '0.5rem', background: 'rgba(0,255,0,0.1)', borderRadius: '6px' }}>{message}</p>}
 
-          <button type="submit" className="custom-button primary" disabled={loading} style={{ width: '100%', padding: '0.85rem', fontWeight: 'bold', marginTop: '0.5rem', opacity: loading ? 0.7 : 1 }}>
+          <button type="submit" className="btn" disabled={loading} style={{ width: '100%', padding: '0.85rem', fontWeight: 'bold', marginTop: '0.5rem', opacity: loading ? 0.7 : 1, fontSize: '1rem' }}>
             {loading ? 'Attendere...' : (isForgotPasswordMode ? 'Invia link di recupero' : (isRegisterMode ? 'Registrati' : 'Accedi'))}
           </button>
         </form>
@@ -149,7 +149,7 @@ const Login = () => {
           {isForgotPasswordMode ? 'Ti sei ricordato la password? ' : (isRegisterMode ? 'Hai già un account? ' : 'Non hai un account? ')}
           <button
             onClick={() => { setIsRegisterMode(isForgotPasswordMode ? false : !isRegisterMode); setIsForgotPasswordMode(false); setError(''); setMessage(''); }}
-            style={{ background: 'none', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontWeight: 'bold' }}
+            style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontWeight: 'bold' }}
           >
             {isForgotPasswordMode ? 'Torna al Login' : (isRegisterMode ? 'Accedi' : 'Registrati')}
           </button>

@@ -20,6 +20,7 @@ const Dashboard = () => {
   const ctx = usePortfolioContext();
   const [overridePopup, setOverridePopup] = useState(null);
   const [overrideValue, setOverrideValue] = useState('');
+  const [isActionsOpen, setIsActionsOpen] = useState(false);
 
   // handleDotClick receives the Recharts dot event data directly
   const handleDotClick = (dotData) => {
@@ -43,42 +44,81 @@ const Dashboard = () => {
   return (
     <PageTransition>
       <div className="dashboard-page">
-      <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
         <div>
-          <h1>La Mia Dashboard</h1>
-          <p className="text-secondary">Benvenuto nel tuo tracker di portafoglio di nuova generazione.</p>
+          <h1 style={{ marginBottom: '0.3rem' }}>La Mia Dashboard</h1>
+          <p className="text-secondary" style={{ margin: 0 }}>Il tuo portafoglio in tempo reale.</p>
         </div>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <select
-            className="form-control"
-            value={ctx.displayCurrency}
-            onChange={(e) => {
-              ctx.setDisplayCurrency(e.target.value);
-              localStorage.setItem('displayCurrency', e.target.value);
-            }}
-            style={{ padding: '0.6rem 1rem', width: 'auto', backgroundColor: 'rgba(255,255,255,0.05)', fontWeight: 'bold' }}
-            title="Cambia valuta di visualizzazione"
-          >
-            <option value="EUR">🇪🇺 EUR</option>
-            <option value="USD">🇺🇸 USD</option>
-          </select>
 
-          <button
-            className={`btn ${ctx.autoRefresh ? 'pulse-button' : 'btn-outline'}`}
-            onClick={() => ctx.setAutoRefresh(!ctx.autoRefresh)}
-            style={ctx.autoRefresh ? { background: 'var(--accent)', color: 'white', border: 'none' } : { borderColor: 'var(--accent)', color: 'var(--accent)' }}
-          >
-            {ctx.autoRefresh ? '🔄 Auto-Refresh: ON' : '⏸ Auto-Refresh: OFF'}
-          </button>
-          <button className="btn" onClick={() => { ctx.setEditingTxId(null); ctx.setIsModalOpen(true); }} style={{ background: 'var(--success)' }}>
-            + Nuova Transazione
-          </button>
-          <button className="btn" onClick={() => { ctx.setIsTransferModalOpen(true); }} style={{ background: 'var(--accent)' }} title="Trasferisci o converti fondi tra conti">
-            ⇄ Giroconto / FX
-          </button>
-          <button className="btn" onClick={() => { ctx.fetchPortfolio(); ctx.fetchTransactions(); ctx.fetchLiquidity(); }}>
-            Aggiorna Prezzi Live
-          </button>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          {/* Indicatori Discreti */}
+          <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '0.4rem 0.8rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <select
+              className="form-control"
+              value={ctx.displayCurrency}
+              onChange={(e) => { ctx.setDisplayCurrency(e.target.value); localStorage.setItem('displayCurrency', e.target.value); }}
+              style={{ width: 'auto', backgroundColor: 'transparent', border: 'none', color: 'var(--text-secondary)', padding: '0', cursor: 'pointer', outline: 'none', fontSize: '0.85rem', fontWeight: '600' }}
+              title="Valuta di visualizzazione"
+            >
+              <option value="EUR">EUR</option>
+              <option value="USD">USD</option>
+            </select>
+            
+            <div style={{ width: '1px', height: '14px', background: 'rgba(255,255,255,0.1)' }}></div>
+            
+            <button
+              onClick={() => ctx.setAutoRefresh(!ctx.autoRefresh)}
+              style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: ctx.autoRefresh ? 'var(--accent)' : 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: '500', padding: 0 }}
+              title={ctx.autoRefresh ? 'Auto-refresh attivo' : 'Auto-refresh disattivo'}
+            >
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: ctx.autoRefresh ? 'var(--accent)' : 'rgba(255,255,255,0.2)', boxShadow: ctx.autoRefresh ? '0 0 8px var(--accent-glow)' : 'none' }}></div>
+              Sync
+            </button>
+          </div>
+
+          {/* Azione Primaria + Dropdown */}
+          <div style={{ position: 'relative' }}>
+             <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  className="btn"
+                  onClick={() => { ctx.setEditingTxId(null); ctx.setIsModalOpen(true); }}
+                  style={{ background: 'var(--accent)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 1rem' }}
+                >
+                  <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>+</span> Transazione
+                </button>
+                <button
+                  className="btn btn-outline"
+                  onClick={() => setIsActionsOpen(!isActionsOpen)}
+                  style={{ padding: '0.5rem 0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  •••
+                </button>
+             </div>
+             {isActionsOpen && (
+                <>
+                  <div 
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 40 }} 
+                    onClick={() => setIsActionsOpen(false)}
+                  />
+                  <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--surface)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', zIndex: 50, minWidth: '180px', boxShadow: '0 10px 30px rgba(0,0,0,0.6)' }}>
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => { ctx.setIsTransferModalOpen(true); setIsActionsOpen(false); }}
+                      style={{ border: 'none', textAlign: 'left', padding: '0.6rem 0.8rem', justifyContent: 'flex-start', color: 'var(--text-primary)' }}
+                    >
+                      ⇄ Giroconto
+                    </button>
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => { ctx.fetchPortfolio(); ctx.fetchTransactions(); ctx.fetchLiquidity(); setIsActionsOpen(false); }}
+                      style={{ border: 'none', textAlign: 'left', padding: '0.6rem 0.8rem', justifyContent: 'flex-start', color: 'var(--text-primary)' }}
+                    >
+                      ↻ Aggiorna Prezzi
+                    </button>
+                  </div>
+                </>
+             )}
+          </div>
         </div>
       </header>
 
@@ -103,10 +143,32 @@ const Dashboard = () => {
           {/* Griglia Valori Globali */}
           <div className="summary-grid">
             <SpotlightCard className="summary-card">
-              <h3>Valore Totale MTM</h3>
-              <div className="value gradient-text">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <h3>Valore Totale MTM</h3>
+                {ctx.filteredSnapshots?.length > 0 && ctx.historyPeriod !== 'ALL' && (
+                  <span style={{ 
+                    fontSize: '0.75rem', 
+                    padding: '3px 8px', 
+                    borderRadius: '12px', 
+                    background: ctx.periodGain >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                    color: ctx.periodGain >= 0 ? 'var(--success)' : 'var(--danger)',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    {ctx.periodGain >= 0 ? '▲' : '▼'} {Math.abs(ctx.periodGainPercent).toFixed(2)}%
+                  </span>
+                )}
+              </div>
+              <div className="value gradient-text" style={{ marginTop: '0.2rem' }}>
                 <CountUp start={0} end={ctx.totalValue || 0} decimals={2} duration={1.5} separator="." decimal="," prefix={ctx.displayCurrency === 'USD' ? '$' : '€'} />
               </div>
+              {ctx.filteredSnapshots?.length > 0 && ctx.historyPeriod !== 'ALL' && (
+                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.6rem' }}>
+                    Rispetto a inizio {ctx.historyPeriod}: <span style={{ color: ctx.periodGain >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight: '600' }}>{ctx.periodGain >= 0 ? '+' : ''}{ctx.formatCurrency(ctx.periodGain, ctx.displayCurrency)}</span>
+                 </div>
+              )}
             </SpotlightCard>
 
             <SpotlightCard className="summary-card" style={{ padding: '1.2rem' }}>
@@ -191,7 +253,7 @@ const Dashboard = () => {
                               padding: item.isLiquidity ? '4px 8px' : '2px 0',
                               marginTop: item.isLiquidity ? '4px' : '0',
                               borderRadius: item.isLiquidity ? '6px' : '0',
-                              backgroundColor: item.isLiquidity ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                              backgroundColor: item.isLiquidity ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
                               fontWeight: item.isLiquidity ? '600' : 'normal',
                               color: item.isLiquidity ? 'var(--accent)' : 'inherit'
                             }}>
@@ -240,7 +302,7 @@ const Dashboard = () => {
               {ctx.sections.passive && (
                 <div className="spotlight-card" style={{ borderRadius: '0 0 16px 16px', borderTop: 'none', borderTop: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'var(--glass-bg)' }}>
                   <div className="dashboard-grid" style={{ marginBottom: '1.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-                    <div className="summary-card" style={{ background: 'rgba(59, 130, 246, 0.1)' }}>
+                    <div className="summary-card" style={{ background: 'rgba(139, 92, 246, 0.1)' }}>
                       <div className="text-secondary">Totale Dividendi</div>
                       <div className="value" style={{ color: 'var(--accent)' }}>{ctx.formatCurrency(ctx.passiveIncomeStats.totalDividends, ctx.displayCurrency)}</div>
                     </div>
@@ -429,7 +491,7 @@ const Dashboard = () => {
                             <YAxis yAxisId="events" domain={[-1, 10]} hide={true} />
                             <Area yAxisId="left" type="monotone" dataKey="total_invested" stroke="var(--accent)" strokeWidth={2} fillOpacity={1} fill="url(#colorInvested)" name="total_invested" isAnimationActive={ctx.historyPeriod === 'ALL' ? false : true} dot={['1G', '1S', '1M', '3M'].includes(ctx.historyPeriod) ? { r: 2, fill: 'var(--accent)', strokeWidth: 0 } : false} activeDot={{ r: 5, strokeWidth: 0 }} />
                             <Area yAxisId="left" type="monotone" dataKey="total_value" stroke="var(--success)" strokeWidth={4} fillOpacity={1} fill="url(#colorTotal)" name="total_value" isAnimationActive={ctx.historyPeriod === 'ALL' ? false : true} dot={['1G', '1S', '1M', '3M'].includes(ctx.historyPeriod) ? { r: 3, fill: 'var(--success)', strokeWidth: 0 } : false} activeDot={{ r: 8, stroke: 'white', strokeWidth: 2, cursor: 'pointer', onClick: (e, data) => handleDotClick(data) }} />
-                            <Bar yAxisId="right" dataKey="daily_deposit" fill="rgba(59, 130, 246, 0.2)" barSize={15} radius={[2, 2, 0, 0]} />
+                            <Bar yAxisId="right" dataKey="daily_deposit" fill="rgba(245, 158, 11, 0.2)" barSize={15} radius={[2, 2, 0, 0]} />
                           </>
                         ) : (
                           <>

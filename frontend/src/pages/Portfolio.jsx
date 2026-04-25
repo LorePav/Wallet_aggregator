@@ -115,7 +115,7 @@ const Portfolio = () => {
                         style={{
                           cursor: ctx.draggedItemIdx !== null ? 'grabbing' : (item.isLiquidity ? 'default' : 'pointer'),
                           opacity: ctx.draggedItemIdx === index ? 0.3 : 1,
-                          backgroundColor: ctx.draggedItemIdx === index ? 'rgba(255,255,255,0.02)' : (ctx.dragOverItemIdx === index ? 'rgba(59, 130, 246, 0.15)' : ''),
+                          backgroundColor: ctx.draggedItemIdx === index ? 'rgba(255,255,255,0.02)' : (ctx.dragOverItemIdx === index ? 'rgba(245, 158, 11, 0.15)' : ''),
                           borderTop: ctx.dragOverItemIdx === index && ctx.draggedItemIdx > index ? '2px solid var(--accent)' : 'none',
                           borderBottom: ctx.dragOverItemIdx === index && ctx.draggedItemIdx < index ? '2px solid var(--accent)' : 'none',
                           transform: ctx.draggedItemIdx === index ? 'scale(0.99)' : 'scale(1)',

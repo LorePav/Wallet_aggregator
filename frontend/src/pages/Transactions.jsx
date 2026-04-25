@@ -3,6 +3,20 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Lege
 import { usePortfolioContext } from '../context/PortfolioContext';
 import PageTransition from '../components/PageTransition';
 
+const TX_BADGE_MAP = {
+  'Buy':          { cls: 'tx-badge--buy',  label: 'Compra' },
+  'Sell':         { cls: 'tx-badge--sell', label: 'Vendi' },
+  'Dividend':     { cls: 'tx-badge--div',  label: 'Dividendo' },
+  'Farming DeFi': { cls: 'tx-badge--farm', label: 'Farming' },
+  'Deposit':      { cls: 'tx-badge--dep',  label: 'Deposito' },
+  'Withdrawal':   { cls: 'tx-badge--with', label: 'Prelievo' },
+};
+
+const TxTypeBadge = ({ type }) => {
+  const cfg = TX_BADGE_MAP[type] || { cls: 'tx-badge--other', label: type };
+  return <span className={`tx-badge ${cfg.cls}`}>{cfg.label}</span>;
+};
+
 
 const Transactions = () => {
   const ctx = usePortfolioContext();
@@ -96,19 +110,7 @@ const Transactions = () => {
                     <tr key={tx.id}>
                       <td style={{ padding: '0.8rem' }}>{new Date(tx.date).toLocaleDateString('it-IT')}</td>
                       <td style={{ padding: '0.8rem' }}>
-                        <span style={{
-                          padding: '4px 10px',
-                          background: tx.type === 'Buy' ? 'rgba(16, 185, 129, 0.2)' : (tx.type === 'Sell' ? 'rgba(239, 68, 68, 0.2)' : (tx.type === 'Dividend' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(59, 130, 246, 0.2)')),
-                          color: tx.type === 'Buy' ? 'var(--success)' : (tx.type === 'Sell' ? 'var(--danger)' : (tx.type === 'Dividend' ? '#c084fc' : 'var(--accent)')),
-                          borderRadius: '12px',
-                          fontSize: '0.8rem',
-                          fontWeight: '500',
-                          display: 'inline-block',
-                          minWidth: '70px',
-                          textAlign: 'center'
-                        }}>
-                          {tx.type === 'Buy' ? 'Compra' : (tx.type === 'Sell' ? 'Vendi' : (tx.type === 'Dividend' ? 'Dividendo' : tx.type))}
-                        </span>
+                        <TxTypeBadge type={tx.type} />
                       </td>
                       <td style={{ padding: '0.8rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

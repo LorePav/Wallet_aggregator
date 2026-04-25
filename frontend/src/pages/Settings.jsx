@@ -3,7 +3,6 @@ import axios from 'axios';
 import { usePortfolioContext } from '../context/PortfolioContext';
 import AccountSettings from '../components/AccountSettings';
 import PageTransition from '../components/PageTransition';
-
 const Settings = () => {
   const {
     displayCurrency, handleCurrencyChange,
@@ -68,7 +67,7 @@ const Settings = () => {
         {/* Preferenze Generali */}
         <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column' }}>
           <h3 style={{ fontSize: '1.2rem', marginBottom: '1.5rem', color: 'var(--accent)', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Preferenze Generali</h3>
-          
+
           <div className="form-group" style={{ marginBottom: '1.5rem' }}>
             <label>Valuta Base</label>
             <select className="form-control" value={displayCurrency} onChange={handleCurrencyChange} style={{ marginTop: '0.5rem' }}>
@@ -211,7 +210,7 @@ const Settings = () => {
                   btn.disabled = false;
                 }
               }}
-              style={{ width: '100%', borderColor: 'rgba(59, 130, 246, 0.5)', color: 'var(--success)' }}
+              style={{ width: '100%', borderColor: 'rgba(245, 158, 11, 0.5)', color: 'var(--success)' }}
             >
               📤 Esporta su Google Sheets
             </button>
