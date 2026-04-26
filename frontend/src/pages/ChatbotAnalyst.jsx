@@ -176,7 +176,7 @@ const ChatbotAnalyst = () => {
     <PageTransition>
       <div className={styles.container}>
         <header className={styles.header}>
-          <div className={styles.avatar}><BrainCircuit size={28} color="#121212" /></div>
+          <div className={styles.avatar}><img src="/bot-avatar.png" alt="Bot" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /></div>
           <div className={styles.headerInfo}>
             <h2>Analista di Mercato AI</h2>
             <span className={styles.status}>Online - Visual Dashboard Mode</span>
@@ -187,7 +187,7 @@ const ChatbotAnalyst = () => {
           <div className={styles.messageList}>
             {messages.map((msg) => (
               <div key={msg.id} className={msg.sender === 'bot' ? styles.botMessageWrapper : styles.userMessageWrapper}>
-                {msg.sender === 'bot' && <div className={styles.botAvatar}><BrainCircuit size={18} color="var(--primary-color, #f59e0b)" /></div>}
+                {msg.sender === 'bot' && <div className={styles.botAvatar}><img src="/bot-avatar.png" alt="Bot" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /></div>}
                 
                 {msg.type === 'text' ? (
                   <div className={msg.sender === 'bot' ? styles.botBubble : styles.userBubble}>
@@ -209,7 +209,7 @@ const ChatbotAnalyst = () => {
             
             {isLoading && (
               <div className={styles.botMessageWrapper}>
-                <div className={styles.botAvatar}><BrainCircuit size={18} color="var(--primary-color, #f59e0b)" /></div>
+                <div className={styles.botAvatar}><img src="/bot-avatar.png" alt="Bot" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /></div>
                 <div className={styles.botBubble}>
                   <span className={styles.loadingDots}></span>
                 </div>
