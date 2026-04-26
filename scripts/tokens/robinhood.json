@@ -1,0 +1,20 @@
+{
+  "themeName": "robinhood",
+  "displayName": "Robinhood Green",
+  "description": "Ispirato a Robinhood — verde brillante su nero profondo, minimalismo estremo.",
+  "source": "curated",
+  "reference": "https://robinhood.com — dark mode palette 2024",
+  "tokens": {
+    "bgColor":       "#090909",
+    "surface":       "#161616",
+    "surfaceHover":  "#222222",
+    "accent":        "#00c805",
+    "accentGlow":    "rgba(0, 200, 5, 0.2)",
+    "textPrimary":   "#f9f9f9",
+    "textSecondary": "#8a8a8a",
+    "success":       "#00c805",
+    "danger":        "#ef5350",
+    "fontFamily":    "'Roboto', 'Inter', sans-serif",
+    "radius":        "12px"
+  }
+}

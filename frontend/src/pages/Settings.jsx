@@ -40,17 +40,17 @@ const Settings = () => {
 
   const handleThemeChange = (hex) => {
     setThemeColor(hex);
-    localStorage.setItem('themeColor', hex);
+    localStorage.setItem('themeColor_v4', hex);
   };
   
   const handleBgChange = (hex) => {
     setThemeBg(hex);
-    localStorage.setItem('themeBg', hex);
+    localStorage.setItem('themeBg_v4', hex);
   };
 
   const handleFontChange = (e) => {
     setThemeFont(e.target.value);
-    localStorage.setItem('themeFont', e.target.value);
+    localStorage.setItem('themeFont_v4', e.target.value);
   };
 
   return (

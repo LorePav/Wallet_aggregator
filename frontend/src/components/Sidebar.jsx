@@ -8,6 +8,7 @@ import {
   Settings,
   LogOut,
   Wallet,
+  BrainCircuit,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
@@ -24,6 +25,7 @@ const navSections = [
     items: [
       { to: '/transactions', icon: ArrowLeftRight, label: 'Transazioni' },
       { to: '/analytics', icon: BarChart3, label: 'Analisi Avanzate' },
+      { to: '/market-analyst', icon: BrainCircuit, label: 'Analista di Mercato' },
     ],
   },
   {

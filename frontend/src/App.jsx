@@ -11,6 +11,7 @@ import Settings from './pages/Settings';
 import Login from './pages/Login';
 import UpdatePassword from './pages/UpdatePassword';
 import Analytics from './pages/Analytics';
+import ChatbotAnalyst from './pages/ChatbotAnalyst';
 
 const App = () => {
   const [session, setSession] = useState(null);
@@ -72,6 +73,7 @@ const App = () => {
             <Route path="portfolio" element={<Portfolio />} />
             <Route path="transactions" element={<Transactions />} />
             <Route path="analytics" element={<Analytics />} />
+            <Route path="market-analyst" element={<ChatbotAnalyst />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>

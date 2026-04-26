@@ -296,3 +296,21 @@ def export_to_sheets(db: Session = Depends(get_db), user_data: dict = Depends(ve
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Errore durante l'esportazione: {str(e)}")
+
+# --- ENDPOINT ANALISTA DI MERCATO ---
+@app.get("/api/market-analyst/{ticker}")
+def analyze_market_ticker(ticker: str, user_data: dict = Depends(verify_token)):
+    """
+    Richiama l'agente AI che analizza i fondamentali di mercato
+    in linguaggio semplice.
+    """
+    try:
+        import market_analyst
+        result = market_analyst.analizza_azienda(ticker)
+        if "errore" in result:
+            raise HTTPException(status_code=404, detail=result["errore"])
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Errore durante l'analisi: {str(e)}")

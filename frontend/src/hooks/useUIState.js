@@ -1,10 +1,10 @@
 import { useState } from 'react';
 
 export const useUIState = () => {
-    // Theme
-    const [themeColor, setThemeColor] = useState(() => localStorage.getItem('themeColor') || '#f59e0b');
-    const [themeBg, setThemeBg] = useState(() => localStorage.getItem('themeBg') || '#0b0f19');
-    const [themeFont, setThemeFont] = useState(() => localStorage.getItem('themeFont') || "'Inter', sans-serif");
+    // Theme (Forzato alla UI Premium Cyan/Outfit come richiesto dall'utente)
+    const [themeColor, setThemeColor] = useState(() => localStorage.getItem('themeColor_v4') || '#0ea5e9');
+    const [themeBg, setThemeBg] = useState(() => localStorage.getItem('themeBg_v4') || '#0b0f19');
+    const [themeFont, setThemeFont] = useState(() => localStorage.getItem('themeFont_v4') || "'Outfit', sans-serif");
 
     // Modals
     const [isModalOpen, setIsModalOpen] = useState(false);

@@ -1,0 +1,20 @@
+{
+  "themeName": "bybit",
+  "displayName": "Bybit Orange",
+  "description": "Ispirato a Bybit — arancione caldo su navy scuro, aspetto da exchange professionale.",
+  "source": "curated",
+  "reference": "https://www.bybit.com — design palette 2024",
+  "tokens": {
+    "bgColor":       "#10141e",
+    "surface":       "#1c2333",
+    "surfaceHover":  "#252f44",
+    "accent":        "#f7a600",
+    "accentGlow":    "rgba(247, 166, 0, 0.25)",
+    "textPrimary":   "#ffffff",
+    "textSecondary": "#7b8394",
+    "success":       "#11be6a",
+    "danger":        "#e9595b",
+    "fontFamily":    "'Inter', sans-serif",
+    "radius":        "6px"
+  }
+}

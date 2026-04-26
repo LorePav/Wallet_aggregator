@@ -19,3 +19,17 @@ portfolio.db
  2. Database Multi-Tenant: Aggiungere la colonna `user_id` in tutte le tabelle e attivare la Row Level Security (RLS) su Supabase.
  3. Backend: Passaggio del token JWT nelle chiamate FastAPI per permettere ad ogni utente l'accesso esclusivo al proprio portafoglio.
  4. Frontend: Aggiornare la gestione dello stato React al volo svuotando i dati al logout.
+
+ IDEE FUTURE: Analisi Avanzate e Grafici
+ 1. Analisi del Rischio e Volatilità (Risk Management)
+    - Drawdown Chart: Grafico che mostra cali percentuali rispetto ai picchi storici.
+    - Heatmap di Correlazione: Matrice per visualizzare la correlazione tra gli asset del portafoglio.
+    - Metriche Pro: Calcolo dell'indice di Sharpe e misurazione del Beta rispetto ai mercati base.
+ 2. Simulazioni e Predittività
+    - Backtest e Monte Carlo: Simulazioni stocastiche che proiettano la curva teorica del portafoglio su 1, 5 o 10 anni (fan chart).
+    - Frontiera Efficiente (Markowitz): Suggerimenti intelligenti AI/algoritmici (es: "rinbilancia il peso di XY per ottimizzare il rischio").
+ 3. Macro-dati e Benchmark
+    - Grafico Overlay Multi-Asset: Permettere di sovrapporre indici (S&P500 ecc) o inflazione ai propri rendimenti.
+    - Indicatore Macro: Integrare Fear & Greed Index o VIX nel widget della dashboard.
+ 4. Categorizzazione "Raggi X" (Tree Maps)
+    - Grafico Treemap per Settori / Geografia: Espansione interattiva delle allocazioni (scaricando meta-dati automatici da yfinance come settore e nazione).

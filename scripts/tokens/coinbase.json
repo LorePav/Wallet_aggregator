@@ -1,0 +1,20 @@
+{
+  "themeName": "coinbase",
+  "displayName": "Coinbase Blue",
+  "description": "Ispirato al dark mode di Coinbase — blu istituzionale, aspetto più corporate e trust.",
+  "source": "curated",
+  "reference": "https://www.coinbase.com — dark mode palette 2024",
+  "tokens": {
+    "bgColor":       "#0a0e17",
+    "surface":       "#1c2230",
+    "surfaceHover":  "#252f42",
+    "accent":        "#0052ff",
+    "accentGlow":    "rgba(0, 82, 255, 0.25)",
+    "textPrimary":   "#ffffff",
+    "textSecondary": "#8a919e",
+    "success":       "#05b169",
+    "danger":        "#f05252",
+    "fontFamily":    "'Inter', sans-serif",
+    "radius":        "8px"
+  }
+}

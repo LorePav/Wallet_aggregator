@@ -1,0 +1,20 @@
+{
+  "themeName": "jupiter",
+  "displayName": "Jupiter DEX",
+  "description": "Ispirato a Jupiter DEX (Solana) — verde neon/lime su deep navy, stile DeFi futuristico.",
+  "source": "curated",
+  "reference": "https://jup.ag — design palette 2024",
+  "tokens": {
+    "bgColor":       "#161b2b",
+    "surface":       "#1d2436",
+    "surfaceHover":  "#252f46",
+    "accent":        "#c7f284",
+    "accentGlow":    "rgba(199, 242, 132, 0.2)",
+    "textPrimary":   "#ffffff",
+    "textSecondary": "#8492a6",
+    "success":       "#c7f284",
+    "danger":        "#e84142",
+    "fontFamily":    "'Inter', sans-serif",
+    "radius":        "16px"
+  }
+}
