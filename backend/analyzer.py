@@ -404,70 +404,101 @@ def generate_overall_summary(info: dict) -> str:
     fcf = safe_get(info, "freeCashflow")
     net_margin = safe_get(info, "profitMargins")
 
-    # Contiamo i punti "positivi" e "negativi"
-    positive = 0
-    negative = 0
-    neutral = 0
+    # Liste per raccogliere le argomentazioni
+    positive_reasons = []
+    negative_reasons = []
+    neutral_reasons = []
 
     # Valutiamo il P/E
     if pe is not None:
-        if 0 < pe < 25:   positive += 1
-        elif pe > 40:     negative += 1
-        else:             neutral += 1
+        if 0 < pe < 25:
+            positive_reasons.append(f"Valutazione (P/E a {pe:.1f}): Il prezzo pagato per gli utili è ragionevole e in linea col mercato.")
+        elif pe > 40:
+            negative_reasons.append(f"Valutazione cara (P/E a {pe:.1f}): Il mercato sconta una fortissima crescita, rendendo il titolo vulnerabile a delusioni.")
+        else:
+            neutral_reasons.append(f"Valutazione intermedia (P/E a {pe:.1f}): Multiplo né particolarmente economico né eccessivamente caro.")
 
     # Valutiamo il ROE
     if roe is not None:
         roe_pct = roe * 100
-        if roe_pct > 15:  positive += 1
-        elif roe_pct < 5: negative += 1
-        else:             neutral += 1
+        if roe_pct > 15:
+            positive_reasons.append(f"Alta Redditività (ROE {roe_pct:.1f}%): L'azienda genera ritorni eccellenti sul capitale investito.")
+        elif roe_pct < 5:
+            negative_reasons.append(f"Bassa Redditività (ROE {roe_pct:.1f}%): L'azienda fatica a generare buoni rendimenti sul capitale.")
+        else:
+            neutral_reasons.append(f"Redditività media (ROE {roe_pct:.1f}%): Rendimenti sul capitale accettabili ma non straordinari.")
 
     # Valutiamo il Debt/Equity
     if de is not None:
-        if de < 1:        positive += 1
-        elif de > 3:      negative += 1
-        else:             neutral += 1
+        if de < 1:
+            positive_reasons.append(f"Basso Indebitamento (D/E {de:.2f}): Struttura finanziaria solida, con basso rischio di solvibilità.")
+        elif de > 3:
+            negative_reasons.append(f"Alto Indebitamento (D/E {de:.2f}): Forte dipendenza dal debito, che aumenta il rischio in caso di tassi alti.")
+        else:
+            neutral_reasons.append(f"Indebitamento moderato (D/E {de:.2f}): Livello di debito fisiologico per le normali operazioni.")
 
     # Valutiamo il Free Cash Flow
     if fcf is not None:
-        if fcf > 0:       positive += 1
-        else:             negative += 1
+        if fcf > 0:
+            positive_reasons.append("Generazione Cassa: L'azienda produce liquidità netta positiva (Free Cash Flow solido).")
+        else:
+            negative_reasons.append("Assorbimento Cassa: L'azienda brucia liquidità (Free Cash Flow negativo).")
 
     # Valutiamo il margine netto
     if net_margin is not None:
         nm_pct = net_margin * 100
-        if nm_pct > 10:   positive += 1
-        elif nm_pct < 3:  negative += 1
-        else:             neutral += 1
+        if nm_pct > 10:
+            positive_reasons.append(f"Ampi Margini (Net Margin {nm_pct:.1f}%): L'azienda trattiene una quota elevata di profitti dai propri ricavi.")
+        elif nm_pct < 3:
+            negative_reasons.append(f"Margini Ristretti (Net Margin {nm_pct:.1f}%): L'azienda opera con margini molto sottili, rischiando perdite al primo imprevisto.")
+        else:
+            neutral_reasons.append(f"Margini standard (Net Margin {nm_pct:.1f}%): Marginalità nella media.")
+
+    positive_count = len(positive_reasons)
+    negative_count = len(negative_reasons)
+    neutral_count = len(neutral_reasons)
+    total = positive_count + negative_count + neutral_count
 
     # Decidiamo il giudizio finale
-    total = positive + negative + neutral
     if total == 0:
         verdict = "⚪ Dati insufficienti per un giudizio."
-    elif positive >= 3 and negative == 0:
+    elif positive_count >= 3 and negative_count == 0:
         verdict = "🟢 **POSITIVO** — L'azienda mostra fondamentali solidi su più fronti."
-    elif positive > negative:
+    elif positive_count > negative_count:
         verdict = "🟡 **NELLA MEDIA** — Fondamentali discreti, con alcuni punti di forza e qualche area da monitorare."
-    elif negative > positive:
+    elif negative_count > positive_count:
         verdict = "🔴 **ATTENZIONE** — Diversi indicatori segnalano debolezze. Analisi approfondita raccomandata."
     else:
         verdict = "🟡 **MISTO** — Luci e ombre. Valutare caso per caso in base al contesto di settore."
 
     summary_lines = [
-        f"## 📋 Sintesi Fondamentale: {name}",
-        "",
+        f"📋 **Sintesi Fondamentale:** {name}",
         f"**Settore:** {sector} | **Industria:** {industry}",
         f"**Market Cap:** {format_large_number(market_cap)}",
         "",
-        f"### Giudizio complessivo: {verdict}",
-        "",
-        f"✅ Punti di forza rilevati: **{positive}**",
-        f"⚠️  Aree nella media: **{neutral}**",
-        f"❌ Punti critici: **{negative}**",
-        "",
-        "---",
-        "*⚠️ Nota: questa analisi è generata automaticamente a scopo informativo.*",
-        "*Non costituisce consulenza finanziaria. Prima di investire consulta un professionista.*",
+        f"**Giudizio complessivo:** {verdict}",
+        ""
     ]
+
+    if positive_count > 0:
+        summary_lines.append(f"✅ **Punti di forza rilevati ({positive_count}):**")
+        for reason in positive_reasons:
+            summary_lines.append(f"  • {reason}")
+    
+    if neutral_count > 0:
+        summary_lines.append(f"⚠️ **Aree nella media ({neutral_count}):**")
+        for reason in neutral_reasons:
+            summary_lines.append(f"  • {reason}")
+
+    if negative_count > 0:
+        summary_lines.append(f"❌ **Punti critici ({negative_count}):**")
+        for reason in negative_reasons:
+            summary_lines.append(f"  • {reason}")
+
+    summary_lines.extend([
+        "",
+        "⚠️ Nota: questa analisi è generata automaticamente a scopo informativo.",
+        "Non costituisce consulenza finanziaria."
+    ])
 
     return "\n".join(summary_lines)

@@ -133,7 +133,7 @@ def valuta_prezzo(info: dict) -> dict:
             colore = "rosso"
 
     return {
-        "titolo_sezione": "Il Prezzo è Giusto?",
+        "titolo_sezione": "Valutazione",
         "metrica_principale": f"Costo vs Utili (P/E): {round(pe, 1) if pe else 'N/D'}",
         "giudizio": giudizio,
         "spiegazione": spiegazione,
@@ -170,7 +170,7 @@ def valuta_salute_finanziaria(info: dict) -> dict:
             colore = "rosso"
 
     return {
-        "titolo_sezione": "L'Azienda è Solida?",
+        "titolo_sezione": "Salute Finanziaria",
         "metrica_principale": f"Cassa disponibile: {format_large_number(cassa)}",
         "giudizio": giudizio,
         "spiegazione": spiegazione,
@@ -211,7 +211,7 @@ def valuta_guadagni(info: dict) -> dict:
             colore = "rosso"
 
     return {
-        "titolo_sezione": "Capacità di Guadagno",
+        "titolo_sezione": "Redditività",
         "metrica_principale": f"Margine di Guadagno: {round(margine_netto * 100, 1)}%" if margine_netto else "N/D",
         "giudizio": giudizio,
         "spiegazione": spiegazione,
@@ -249,7 +249,7 @@ def valuta_dividendi(info: dict) -> dict:
             colore = "rosso"
 
     return {
-        "titolo_sezione": "Dividendi (Rendita Fissa)",
+        "titolo_sezione": "Dividendi",
         "metrica_principale": f"Premio Annuo (Yield): {round(dividendo * 100, 2)}%" if dividendo else "0%",
         "giudizio": giudizio,
         "spiegazione": spiegazione,
