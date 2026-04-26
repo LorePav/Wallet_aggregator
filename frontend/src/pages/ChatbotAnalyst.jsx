@@ -147,10 +147,10 @@ const ChatbotAnalyst = () => {
       // Rimuovi messaggio di caricamento
       setMessages(prev => prev.filter(msg => msg.id !== loadingMsgId));
 
-      // Aggiungi un messaggio testuale di intro e poi i dati grafici
+      // Aggiungi il messaggio testuale (Sintesi con semafori) e poi i dati grafici
       setMessages(prev => [
         ...prev, 
-        { id: Date.now() + 2, sender: 'bot', type: 'text', text: `Ecco l'analisi grafica dettagliata per **${data.nome}**:` },
+        { id: Date.now() + 2, sender: 'bot', type: 'text', text: data.sintesi_testuale || `Ecco l'analisi per **${data.nome}**:` },
         { id: Date.now() + 3, sender: 'bot', type: 'analysis', data: data }
       ]);
 
@@ -191,8 +191,13 @@ const ChatbotAnalyst = () => {
                 
                 {msg.type === 'text' ? (
                   <div className={msg.sender === 'bot' ? styles.botBubble : styles.userBubble}>
-                    {/* Render basic bold text if needed */}
-                    {msg.text.split('**').map((chunk, i) => (i % 2 === 1 ? <strong key={i}>{chunk}</strong> : chunk))}
+                    {/* Render text with basic bold and newlines */}
+                    {msg.text.split('\n').map((line, idx) => (
+                      <React.Fragment key={idx}>
+                        {line.split('**').map((chunk, i) => (i % 2 === 1 ? <strong key={i}>{chunk}</strong> : chunk))}
+                        {idx !== msg.text.split('\n').length - 1 && <br />}
+                      </React.Fragment>
+                    ))}
                   </div>
                 ) : (
                   <div className={styles.botGraphicBubble}>

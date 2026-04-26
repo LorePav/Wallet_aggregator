@@ -91,6 +91,12 @@ def analizza_azienda(ticker_symbol: str) -> dict:
     # Creiamo un riassunto finale (Il Voto Globale)
     risultato["sommario"] = genera_giudizio_globale(risultato)
 
+    # Integriamo la valutazione testuale dettagliata (semafori e valutazioni)
+    import analyzer
+    sintesi = analyzer.generate_overall_summary(info)
+    sintesi = sintesi.replace("## 📋", "📋").replace("### ", "").replace("---", "").replace("*", "")
+    risultato["sintesi_testuale"] = sintesi
+
     return risultato
 
 
