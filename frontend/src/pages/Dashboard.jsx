@@ -161,7 +161,7 @@ const Dashboard = () => {
                   </span>
                 )}
               </div>
-              <div className="value gradient-text" style={{ marginTop: '0.2rem' }}>
+              <div className="value" style={{ marginTop: '0.2rem' }}>
                 <CountUp start={0} end={ctx.totalValue || 0} decimals={2} duration={1.5} separator="." decimal="," prefix={ctx.displayCurrency === 'USD' ? '$' : '€'} />
               </div>
               {ctx.filteredSnapshots?.length > 0 && ctx.historyPeriod !== 'ALL' && (
