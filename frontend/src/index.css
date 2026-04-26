@@ -490,5 +490,61 @@ tr:hover td {
   height: 70%;
   width: 3px;
   background-color: #00E5FF;
-  border-radius: 0 4px 4px 0;
+}
+
+/* =========================================
+   TRANSACTION BADGES (Bolle stile Neon)
+   ========================================= */
+.tx-badge {
+  display: inline-block;
+  padding: 0.35rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: center;
+  min-width: 90px;
+}
+
+.tx-badge--buy {
+  background-color: rgba(37, 99, 235, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #60A5FA;
+}
+
+.tx-badge--sell {
+  background-color: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #F87171;
+}
+
+.tx-badge--dep {
+  background-color: rgba(217, 119, 6, 0.15);
+  border: 1px solid rgba(217, 119, 6, 0.5);
+  color: #00E5FF; /* Ciano brillante come da foto */
+}
+
+.tx-badge--farm {
+  background-color: rgba(5, 150, 105, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #6EE7B7;
+}
+
+.tx-badge--div {
+  background-color: rgba(124, 58, 237, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  color: #C4B5FD;
+}
+
+.tx-badge--with {
+  background-color: rgba(75, 85, 99, 0.2);
+  border: 1px solid rgba(156, 163, 175, 0.4);
+  color: #D1D5DB;
+}
+
+.tx-badge--other {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
 }
