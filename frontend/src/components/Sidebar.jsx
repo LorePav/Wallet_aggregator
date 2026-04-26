@@ -60,18 +60,29 @@ const Sidebar = () => {
   return (
     <div className="sidebar">
       {/* Logo / Brand */}
-      <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">
-          <Wallet size={18} strokeWidth={2} />
+      <div className="sidebar-logo" style={{ marginBottom: '2rem', padding: '1rem', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="sidebar-logo-icon" style={{
+          background: 'linear-gradient(135deg, #00A6B2 0%, #E87A00 100%)',
+          width: '36px', height: '36px', borderRadius: '10px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'white'
+        }}>
+          <Wallet size={20} strokeWidth={2} />
         </div>
-        <span className="sidebar-logo-text">My Portfolio</span>
+        <span className="sidebar-logo-text" style={{ fontWeight: '700', fontSize: '1.1rem', color: '#1D222A' }}>My Portfolio</span>
       </div>
 
       {/* Navigation sections */}
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" style={{ padding: '0 1rem' }}>
         {navSections.map((section) => (
-          <div key={section.label} className="nav-section">
-            <p className="nav-section-label">{section.label}</p>
+          <div key={section.label} className="nav-section" style={{ marginBottom: '1.5rem' }}>
+            <p className="nav-section-label" style={{
+              fontSize: '0.7rem', fontWeight: '800', color: '#4A5568',
+              textTransform: 'uppercase', letterSpacing: '0.08em',
+              marginBottom: '0.8rem', paddingLeft: '0.5rem'
+            }}>
+              {section.label}
+            </p>
             {section.items.map(({ to, icon: Icon, label }) => (
               <NavLink
                 key={to}
@@ -81,7 +92,7 @@ const Sidebar = () => {
                   isActive ? 'nav-link active' : 'nav-link'
                 }
               >
-                <Icon size={17} strokeWidth={1.75} className="nav-icon" />
+                <Icon size={18} strokeWidth={2} className="nav-icon" />
                 <span>{label}</span>
               </NavLink>
             ))}
@@ -89,21 +100,40 @@ const Sidebar = () => {
         ))}
       </nav>
 
+      <div style={{ flex: 1 }}></div>
+
       {/* Footer: user info + logout */}
-      <div className="sidebar-footer">
-        <div className="sidebar-user">
-          <div className="sidebar-avatar">{getInitials(user?.email)}</div>
-          <div className="sidebar-user-info">
-            <span className="sidebar-user-name">{displayName}</span>
-            <span className="sidebar-user-email">{user?.email || ''}</span>
+      <div className="sidebar-footer" style={{
+        padding: '1.5rem 1rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderTop: 'none'
+      }}>
+        <div className="sidebar-user" style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+          <div className="sidebar-avatar" style={{
+            background: '#00C2CB', color: 'white', fontWeight: '700', fontSize: '0.9rem',
+            width: '38px', height: '38px', borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+          }}>
+            {getInitials(user?.email)}
+          </div>
+          <div className="sidebar-user-info" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <span className="sidebar-user-name" style={{ fontWeight: '700', fontSize: '0.9rem', color: 'white', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+              {displayName}
+            </span>
+            <span className="sidebar-user-email" style={{ fontSize: '0.7rem', color: '#718096', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+              {user?.email || ''}
+            </span>
           </div>
         </div>
         <button
           className="sidebar-logout-btn"
           onClick={handleLogout}
           title="Esci"
+          style={{ background: 'transparent', border: 'none', color: '#718096', cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center' }}
         >
-          <LogOut size={15} strokeWidth={1.75} />
+          <LogOut size={18} strokeWidth={2} />
         </button>
       </div>
     </div>
