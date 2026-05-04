@@ -11,6 +11,8 @@ import Settings from './pages/Settings';
 import Login from './pages/Login';
 import UpdatePassword from './pages/UpdatePassword';
 import Analytics from './pages/Analytics';
+import FundamentalAnalysis from './pages/FundamentalAnalysis';
+import TokenomicsAnalysis from './pages/TokenomicsAnalysis';
 import ChatbotAnalyst from './pages/ChatbotAnalyst';
 
 const App = () => {
@@ -73,6 +75,8 @@ const App = () => {
             <Route path="portfolio" element={<Portfolio />} />
             <Route path="transactions" element={<Transactions />} />
             <Route path="analytics" element={<Analytics />} />
+            <Route path="fundamental-analysis" element={<FundamentalAnalysis />} />
+            <Route path="tokenomics-analysis" element={<TokenomicsAnalysis />} />
             <Route path="market-analyst" element={<ChatbotAnalyst />} />
             <Route path="settings" element={<Settings />} />
           </Route>

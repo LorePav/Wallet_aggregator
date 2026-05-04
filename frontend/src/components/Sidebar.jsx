@@ -9,6 +9,8 @@ import {
   LogOut,
   Wallet,
   BrainCircuit,
+  TrendingUp,
+  Coins,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
@@ -18,13 +20,15 @@ const navSections = [
     items: [
       { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
       { to: '/portfolio', icon: Briefcase, label: 'Portafoglio' },
+      { to: '/transactions', icon: ArrowLeftRight, label: 'Transazioni' },
     ],
   },
   {
     label: 'Analisi',
     items: [
-      { to: '/transactions', icon: ArrowLeftRight, label: 'Transazioni' },
       { to: '/analytics', icon: BarChart3, label: 'Analisi Avanzate' },
+      { to: '/fundamental-analysis', icon: TrendingUp, label: 'Analisi Fondamentali' },
+      { to: '/tokenomics-analysis', icon: Coins, label: 'Analisi Tokenomics' },
       { to: '/market-analyst', icon: BrainCircuit, label: 'Analista di Mercato' },
     ],
   },
