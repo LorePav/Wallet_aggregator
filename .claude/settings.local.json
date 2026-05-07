@@ -3,7 +3,8 @@
     "allow": [
       "Bash(node scripts/generate-themes.js)",
       "Bash(venv\\\\Scripts\\\\pip install *)",
-      "Bash(venv/Scripts/pip install *)"
+      "Bash(venv/Scripts/pip install *)",
+      "Bash(python -c ' *)"
     ]
   }
 }

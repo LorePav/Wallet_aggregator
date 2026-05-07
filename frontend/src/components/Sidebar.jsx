@@ -8,7 +8,6 @@ import {
   Settings,
   LogOut,
   Wallet,
-  BrainCircuit,
   TrendingUp,
   Coins,
 } from 'lucide-react';
@@ -29,7 +28,6 @@ const navSections = [
       { to: '/analytics', icon: BarChart3, label: 'Analisi Avanzate' },
       { to: '/fundamental-analysis', icon: TrendingUp, label: 'Analisi Fondamentali' },
       { to: '/tokenomics-analysis', icon: Coins, label: 'Analisi Tokenomics' },
-      { to: '/market-analyst', icon: BrainCircuit, label: 'Analista di Mercato' },
     ],
   },
   {

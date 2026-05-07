@@ -471,6 +471,10 @@ def get_fundamental_price_history(
     if hist is None or hist.empty:
         return []
 
+    closes = hist["Close"]
+    ma50  = closes.rolling(window=50,  min_periods=1).mean()
+    ma200 = closes.rolling(window=200, min_periods=1).mean()
+
     result = []
     for date, row in hist.iterrows():
         def _f(col):
@@ -480,13 +484,16 @@ def get_fundamental_price_history(
             except Exception:
                 return None
 
+        d = str(date)[:10]
         result.append({
-            "date":   str(date)[:10],
+            "date":   d,
             "open":   _f("Open"),
             "high":   _f("High"),
             "low":    _f("Low"),
             "close":  _f("Close"),
             "volume": int(row["Volume"]) if _f("Volume") is not None else None,
+            "ma_50":  round(float(ma50.loc[date]), 4) if not pd.isna(ma50.loc[date]) else None,
+            "ma_200": round(float(ma200.loc[date]), 4) if not pd.isna(ma200.loc[date]) else None,
         })
     return result
 
@@ -506,9 +513,39 @@ def get_fundamental_valuation(ticker: str, user_data: dict = Depends(verify_toke
         raise HTTPException(status_code=404, detail=f"Ticker '{t}' non trovato.")
 
     info = data["info"]
+    metrics = az.get_valuation_metrics(info)
+
+    # Radar chart: P/E, P/B, P/S, EV/EBITDA, EV/Revenue, PEG
+    # Ogni valore viene normalizzato 0-100 rispetto a soglie di riferimento settoriali.
+    # Punteggio alto = multiplo BASSO (valutazione conveniente).
+    def _radar_score(value, low_is_good_ref, high_is_bad_ref):
+        """100 = molto conveniente, 0 = molto caro."""
+        if value is None:
+            return None
+        try:
+            v = float(value)
+            if v <= 0:
+                return None
+            # Clamp tra le soglie e normalizza invertito
+            clamped = max(low_is_good_ref, min(v, high_is_bad_ref))
+            score = 100 * (1 - (clamped - low_is_good_ref) / (high_is_bad_ref - low_is_good_ref))
+            return round(score, 1)
+        except Exception:
+            return None
+
+    radar_data = [
+        {"label": "P/E",        "value": _radar_score(info.get("trailingPE"),           5,  50)},
+        {"label": "P/B",        "value": _radar_score(info.get("priceToBook"),           0.5, 10)},
+        {"label": "P/S",        "value": _radar_score(info.get("priceToSalesTrailing12Months"), 0.5, 15)},
+        {"label": "EV/EBITDA",  "value": _radar_score(info.get("enterpriseToEbitda"),    3,  30)},
+        {"label": "EV/Revenue", "value": _radar_score(info.get("enterpriseToRevenue"),   0.5, 10)},
+        {"label": "PEG",        "value": _radar_score(info.get("pegRatio"),              0.5,  3)},
+    ]
+
     return {
-        "metrics": _metrics_to_list(az.get_valuation_metrics(info)),
-        "comment": az.generate_valuation_comment(info),
+        "metrics":    _metrics_to_list(metrics),
+        "comment":    az.generate_valuation_comment(info),
+        "radar_data": radar_data,
     }
 
 
@@ -520,6 +557,7 @@ def get_fundamental_valuation(ticker: str, user_data: dict = Depends(verify_toke
 @app.get("/api/fundamental/{ticker}/profitability")
 def get_fundamental_profitability(ticker: str, user_data: dict = Depends(verify_token)):
     import analyzer as az
+    import pandas as pd
 
     t = ticker.strip().upper()
     data = _get_cached_fundamental_data(t)
@@ -527,9 +565,33 @@ def get_fundamental_profitability(ticker: str, user_data: dict = Depends(verify_
         raise HTTPException(status_code=404, detail=f"Ticker '{t}' non trovato.")
 
     info = data["info"]
+
+    # Trend annuale Ricavi + Utile Netto (dal conto economico annuale)
+    annual_pl_trend = []
+    income_stmt = data.get("income_stmt")
+    if income_stmt is not None and not income_stmt.empty:
+        rev_row = next((r for r in ["Total Revenue", "TotalRevenue"] if r in income_stmt.index), None)
+        net_row = next((r for r in ["Net Income", "NetIncome"] if r in income_stmt.index), None)
+        for col in income_stmt.columns:
+            year = str(col)[:4]
+            rev = None
+            net = None
+            try:
+                if rev_row:
+                    v = income_stmt.loc[rev_row, col]
+                    rev = None if pd.isna(v) else round(float(v) / 1e9, 3)
+                if net_row:
+                    v = income_stmt.loc[net_row, col]
+                    net = None if pd.isna(v) else round(float(v) / 1e9, 3)
+            except Exception:
+                pass
+            annual_pl_trend.append({"year": year, "revenue_b": rev, "net_income_b": net})
+        annual_pl_trend.reverse()  # cronologico crescente
+
     return {
-        "metrics": _metrics_to_list(az.get_profitability_metrics(info)),
-        "comment": az.generate_profitability_comment(info),
+        "metrics":         _metrics_to_list(az.get_profitability_metrics(info)),
+        "comment":         az.generate_profitability_comment(info),
+        "annual_pl_trend": annual_pl_trend,
     }
 
 
@@ -542,6 +604,7 @@ def get_fundamental_profitability(ticker: str, user_data: dict = Depends(verify_
 @app.get("/api/fundamental/{ticker}/health")
 def get_fundamental_health(ticker: str, user_data: dict = Depends(verify_token)):
     import analyzer as az
+    import pandas as pd
 
     t = ticker.strip().upper()
     data = _get_cached_fundamental_data(t)
@@ -549,9 +612,33 @@ def get_fundamental_health(ticker: str, user_data: dict = Depends(verify_token))
         raise HTTPException(status_code=404, detail=f"Ticker '{t}' non trovato.")
 
     info = data["info"]
+
+    # Trend annuale Operating Cash Flow + Free Cash Flow
+    annual_cashflow_trend = []
+    cashflow = data.get("cashflow")
+    if cashflow is not None and not cashflow.empty:
+        op_row  = next((r for r in ["Operating Cash Flow", "OperatingCashFlow", "Total Cash From Operating Activities"] if r in cashflow.index), None)
+        fcf_row = next((r for r in ["Free Cash Flow", "FreeCashFlow"] if r in cashflow.index), None)
+        for col in cashflow.columns:
+            year = str(col)[:4]
+            op_cf = None
+            fcf   = None
+            try:
+                if op_row:
+                    v = cashflow.loc[op_row, col]
+                    op_cf = None if pd.isna(v) else round(float(v) / 1e9, 3)
+                if fcf_row:
+                    v = cashflow.loc[fcf_row, col]
+                    fcf = None if pd.isna(v) else round(float(v) / 1e9, 3)
+            except Exception:
+                pass
+            annual_cashflow_trend.append({"year": year, "operating_cf_b": op_cf, "free_cf_b": fcf})
+        annual_cashflow_trend.reverse()  # cronologico crescente
+
     return {
-        "metrics": _metrics_to_list(az.get_financial_health_metrics(info)),
-        "comment": az.generate_health_comment(info),
+        "metrics":               _metrics_to_list(az.get_financial_health_metrics(info)),
+        "comment":               az.generate_health_comment(info),
+        "annual_cashflow_trend": annual_cashflow_trend,
     }
 
 
