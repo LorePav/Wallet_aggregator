@@ -10,6 +10,7 @@ import {
   Wallet,
   TrendingUp,
   Coins,
+  Zap,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
@@ -28,6 +29,7 @@ const navSections = [
       { to: '/analytics', icon: BarChart3, label: 'Analisi Avanzate' },
       { to: '/fundamental-analysis', icon: TrendingUp, label: 'Analisi Fondamentali' },
       { to: '/tokenomics-analysis', icon: Coins, label: 'Analisi Tokenomics' },
+      // { to: '/ailyst', icon: Zap, label: 'Ailyst' },
     ],
   },
   {

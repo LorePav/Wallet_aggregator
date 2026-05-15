@@ -13,6 +13,7 @@ import UpdatePassword from './pages/UpdatePassword';
 import Analytics from './pages/Analytics';
 import FundamentalAnalysis from './pages/FundamentalAnalysis';
 import TokenomicsAnalysis from './pages/TokenomicsAnalysis';
+// import Ailyst from './pages/Ailyst';
 
 const App = () => {
   const [session, setSession] = useState(null);
@@ -76,6 +77,7 @@ const App = () => {
             <Route path="analytics" element={<Analytics />} />
             <Route path="fundamental-analysis" element={<FundamentalAnalysis />} />
             <Route path="tokenomics-analysis" element={<TokenomicsAnalysis />} />
+            {/* <Route path="ailyst" element={<Ailyst />} /> */}
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>

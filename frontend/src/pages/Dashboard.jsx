@@ -300,7 +300,7 @@ const Dashboard = () => {
               </SpotlightCard>
 
               {ctx.sections.passive && (
-                <div className="spotlight-card" style={{ borderRadius: '0 0 16px 16px', borderTop: 'none', borderTop: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'var(--glass-bg)' }}>
+                <div className="spotlight-card" style={{ borderRadius: '0 0 16px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'var(--glass-bg)' }}>
                   <div className="dashboard-grid" style={{ marginBottom: '1.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
                     <div className="summary-card" style={{ background: 'rgba(139, 92, 246, 0.1)' }}>
                       <div className="text-secondary">Totale Dividendi</div>
