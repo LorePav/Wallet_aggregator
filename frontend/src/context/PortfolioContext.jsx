@@ -111,13 +111,33 @@ export const PortfolioProvider = ({ children }) => {
   }, [ui.autoRefresh, ui.refreshInterval]);
 
   // --- Computed Data ---
-  // Combiniamo portafoglio con la Cassa. Il backend ora aggrega per
+  // Combiniamo portafoglio con la Cassa. Il backend aggrega per
   // (simbolo, conto): l'id unico deve includere anche il conto.
-  const combinedPortfolio = [...data.portfolio].map(item => ({
-    ...item,
-    account: item.account || 'Default',
-    uniqueId: `${item.symbol}::${item.account || 'Default'}`
-  }));
+  //
+  // Compatibilità con backend più vecchi: se la risposta del portafoglio non
+  // contiene "account", lo deduciamo dalla prima transazione di acquisto dello
+  // stesso simbolo. Senza questo fallback tutti gli asset finirebbero sotto
+  // "Default" (come succedeva nella versione online).
+  const accountBySymbol = {};
+  data.transactions.forEach(tx => {
+    if (tx.symbol && tx.type === 'Buy' && !accountBySymbol[tx.symbol]) {
+      accountBySymbol[tx.symbol] = tx.account || 'Default';
+    }
+  });
+  data.transactions.forEach(tx => {
+    if (tx.symbol && !accountBySymbol[tx.symbol]) {
+      accountBySymbol[tx.symbol] = tx.account || 'Default';
+    }
+  });
+
+  const combinedPortfolio = [...data.portfolio].map(item => {
+    const account = item.account || accountBySymbol[item.symbol] || 'Default';
+    return {
+      ...item,
+      account,
+      uniqueId: `${item.symbol}::${account}`
+    };
+  });
 
   Object.entries(data.liquidity).forEach(([key, amount]) => {
     if (amount !== 0) {

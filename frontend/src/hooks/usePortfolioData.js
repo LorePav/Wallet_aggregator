@@ -259,7 +259,10 @@ export const usePortfolioData = (uiState) => {
         const isCash = tx.type === 'Deposit' || tx.type === 'Withdrawal';
         // Recupera l'asset reale per non perdere categoria e valuta originali.
         // Stesso simbolo può esistere su conti diversi: cerchiamo anche per conto.
-        const asset = portfolio.find(p => p.symbol === tx.symbol && (p.account || 'Default') === (tx.account || 'Default'));
+        const asset = portfolio.find(p => p.symbol === tx.symbol && (p.account || 'Default') === (tx.account || 'Default'))
+            // Backend vecchi non restituiscono "account" nel portafoglio:
+            // in quel caso ripieghiamo sul primo asset con lo stesso simbolo.
+            || portfolio.find(p => p.symbol === tx.symbol);
         uiState.setFormData({
             symbol: tx.symbol,
             name: asset?.name || '',

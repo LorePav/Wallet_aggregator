@@ -46,6 +46,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from database import SessionLocal, engine
+from supabase_config import SUPABASE_URL, SUPABASE_ANON_KEY
 
 # Importa i moduli Ailyst
 import ailyst_models
@@ -62,12 +63,6 @@ ailyst_router = APIRouter(prefix="/api/ailyst", tags=["Ailyst"])
 # AUTENTICAZIONE (stesso meccanismo del main.py)
 # ==============================================================================
 _security = HTTPBearer()
-SUPABASE_URL      = os.environ.get("SUPABASE_URL")
-SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
-if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-    raise RuntimeError(
-        "SUPABASE_URL e SUPABASE_ANON_KEY sono obbligatorie: inseriscile in backend/.env"
-    )
 
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(_security)) -> dict:

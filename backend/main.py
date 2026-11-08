@@ -11,6 +11,7 @@ import models
 import schemas
 import portfolio
 from database import SessionLocal, engine
+from supabase_config import SUPABASE_URL, SUPABASE_ANON_KEY
 
 # ==============================================================================
 # AILYST — Importa i modelli PRIMA di create_all
@@ -23,14 +24,6 @@ from ailyst_router import ailyst_router, start_ailyst_scheduler
 models.Base.metadata.create_all(bind=engine)
 
 security = HTTPBearer()
-# Le credenziali Supabase vivono solo in backend/.env: niente fallback scritti
-# nel codice. Se mancano, l'app si ferma subito con un messaggio chiaro.
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
-if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-    raise RuntimeError(
-        "SUPABASE_URL e SUPABASE_ANON_KEY sono obbligatorie: inseriscile in backend/.env"
-    )
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
@@ -68,7 +61,8 @@ app.add_middleware(
         for origin in os.environ.get(
             "CORS_ORIGINS",
             "http://localhost:5173,http://127.0.0.1:5173,"
-            "http://localhost:4173,http://127.0.0.1:4173",
+            "http://localhost:4173,http://127.0.0.1:4173,"
+            "https://wallet-aggregator-two.vercel.app",
         ).split(",")
         if origin.strip()
     ],
