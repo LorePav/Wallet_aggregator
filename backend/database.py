@@ -22,6 +22,15 @@ SQLALCHEMY_DATABASE_URL = DATABASE_URL_ENV or "sqlite:///./portfolio.db"
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
+# Forziamo il driver psycopg2 (già presente in requirements.txt).
+# Le versioni più recenti di SQLAlchemy, su Python 3.14, scelgono di default
+# psycopg3 ("psycopg"), che non è installato su Render: senza questa riga il
+# deploy fallisce con "ModuleNotFoundError: No module named 'psycopg'".
+if SQLALCHEMY_DATABASE_URL.startswith("postgresql://"):
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace(
+        "postgresql://", "postgresql+psycopg2://", 1
+    )
+
 # connect_args={"check_same_thread": False} serve solo per SQLite
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
     engine = create_engine(
