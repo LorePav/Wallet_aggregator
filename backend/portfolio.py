@@ -2,21 +2,27 @@ from sqlalchemy.orm import Session
 import models
 import datetime
 
-def get_portfolio_data(db: Session, user_id: str):
+def get_portfolio_data(db: Session, user_id: str, fx_rates: dict = None):
     transactions = db.query(models.Transaction).filter(models.Transaction.user_id == user_id).order_by(models.Transaction.date).all()
     assets = db.query(models.Asset).filter(models.Asset.user_id == user_id).all()
-    
+
     # Crea una mappa veloce degli asset
     asset_map = {a.symbol: a for a in assets}
-    
+
+    # Aggreghiamo per (simbolo, conto): lo stesso asset può essere detenuto su
+    # conti diversi e i guadagni/quantità non vanno mescolati.
     portfolio_dict = {}
-    
+
     for t in transactions:
         symbol = t.symbol
-        if symbol not in portfolio_dict:
+        account = t.account or "Default"
+        key = (symbol, account)
+
+        if key not in portfolio_dict:
             asset_info = asset_map.get(symbol)
-            portfolio_dict[symbol] = {
+            portfolio_dict[key] = {
                 "symbol": symbol,
+                "account": account,
                 "name": asset_info.name if asset_info else "Sconosciuto",
                 "category": asset_info.category if asset_info else "Altro",
                 "currency": asset_info.currency if asset_info else "EUR",
@@ -25,75 +31,97 @@ def get_portfolio_data(db: Session, user_id: str):
                 "realized_gain": 0.0,
                 "pmc": 0.0
             }
-            
-        p = portfolio_dict[symbol]
-        
+
+        p = portfolio_dict[key]
+
         if t.type == "Buy":
             p["quantity"] += t.quantity
             p["total_invested"] += t.total
-            
+
         elif t.type == "Sell":
             if p["quantity"] > 0:
                 # Calcola il PMC corrente prima di vendere
                 current_pmc = p["total_invested"] / p["quantity"]
-                # Sottraiamo la quantità venduta
-                p["quantity"] -= t.quantity
+                # Non permettere quantità negative (oversell): vendiamo al massimo il disponibile
+                sold_quantity = min(t.quantity, p["quantity"])
+                p["quantity"] -= sold_quantity
                 # Sottraiamo l'investito proporzionale basato sul PMC originario
-                p["total_invested"] -= (current_pmc * t.quantity)
+                p["total_invested"] -= (current_pmc * sold_quantity)
                 # Calcoliamo il guadagno netto
-                p["realized_gain"] += (t.price - current_pmc) * t.quantity - t.fees
-                
-        elif t.type == "Dividend":
-             p["realized_gain"] += t.total
-             
-    # Fase 2: Recupero prezzi live
+                p["realized_gain"] += (t.price - current_pmc) * sold_quantity - (t.fees or 0.0)
+                if p["quantity"] <= 0.000001:
+                    p["quantity"] = 0.0
+                    p["total_invested"] = 0.0
+
+        elif t.type in ("Dividend", "Farming DeFi"):
+            p["realized_gain"] += t.total
+
+    # Fase 2: Recupero prezzi live (una sola volta per simbolo)
     # Evitiamo di scaricare prezzi per la categoria Farming
-    symbols_to_fetch = [
-        sym for sym, data in portfolio_dict.items() 
+    symbols_to_fetch = sorted({
+        sym for (sym, _account), data in portfolio_dict.items()
         if data["quantity"] > 0.000001 and (data.get("category", "").strip().upper() != "FARMING")
-    ]
-    
+    })
+
     import finance
     live_prices = finance.get_live_prices(symbols_to_fetch)
-    fx_rates = finance.get_exchange_rates()
-             
+    if fx_rates is None:
+        fx_rates = finance.get_exchange_rates()
+
     # Fase 3: Calcolo finale del PMC e dei Valori Correnti
     result = []
-    for sym, data in portfolio_dict.items():
-        if data["quantity"] <= 0.000001:
+    for (sym, _account), data in portfolio_dict.items():
+        is_closed = data["quantity"] <= 0.000001
+
+        # Le posizioni chiuse restano nel risultato per non perdere il guadagno
+        # realizzato (es. dopo una vendita totale), ma senza valore corrente.
+        if is_closed and abs(data.get("realized_gain", 0.0)) <= 0.000001:
             continue
-            
-        data["pmc"] = data["total_invested"] / data["quantity"]
-            
-        if data.get("category", "").strip().upper() == "FARMING":
-            data["live_price"] = 1.0
+
+        data["is_closed"] = is_closed
+
+        if is_closed:
+            data["quantity"] = 0.0
+            data["total_invested"] = 0.0
+            data["pmc"] = 0.0
+        else:
+            data["pmc"] = data["total_invested"] / data["quantity"]
+
+        if is_closed:
+            data["live_price"] = 0.0
+        elif data.get("category", "").strip().upper() == "FARMING":
+            # Le posizioni Farming/DeFi non hanno un prezzo di mercato su Yahoo:
+            # le valutiamo al costo di acquisto (PMC) invece di assumere 1:1.
+            # Così quantità in token e prezzi diversi da 1 non generano guadagni
+            # o perdite fittizie. I rendimenti si registrano come "Farming DeFi".
+            data["live_price"] = data["pmc"]
         else:
             data["live_price"] = live_prices.get(sym, 0.0)
-            
+
         data["current_value"] = data["quantity"] * data["live_price"]
-        
+
         # Convert to EUR using FX rate
         currency = data["currency"]
         fx_rate = fx_rates.get(currency, 1.0)
         usd_rate = fx_rates.get("USD", 1.0)
-        
+
         data["current_value_eur"] = data["current_value"] / fx_rate if fx_rate else data["current_value"]
         data["current_value_usd"] = data["current_value_eur"] * usd_rate
-        
+
         data["total_invested_eur"] = data["total_invested"] / fx_rate if fx_rate else data["total_invested"]
         data["total_invested_usd"] = data["total_invested_eur"] * usd_rate
-        
+
         data["unrealized_gain"] = data["current_value"] - data["total_invested"]
         data["unrealized_gain_eur"] = data["unrealized_gain"] / fx_rate if fx_rate else data["unrealized_gain"]
         data["unrealized_gain_usd"] = data["unrealized_gain_eur"] * usd_rate
-        
+
         if data["total_invested"] > 0:
             data["unrealized_gain_percent"] = (data["unrealized_gain"] / data["total_invested"]) * 100
         else:
             data["unrealized_gain_percent"] = 0.0
-            
+
         result.append(data)
-        
+
     return result
 
 def update_daily_snapshot(db: Session, portfolio_data: list, liquidity_data: dict, user_id: str, fx_rates: dict = None):
@@ -146,7 +174,8 @@ def get_liquidity(db: Session, user_id: str):
     for t in transactions:
         acc = t.account or "Default"
         
-        if t.type in ["Deposit", "Withdrawal", "Dividend", "Farming DeFi"]:
+        if t.type in ["Deposit", "Withdrawal"]:
+            # Per i flussi di cassa il simbolo è direttamente la valuta
             currency = t.symbol.upper()
         else:
             asset = asset_map.get(t.symbol)

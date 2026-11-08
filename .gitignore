@@ -15,6 +15,10 @@ env/
 # SQLite
 *.db
 *.sqlite3
+*.db-journal
+
+# File temporanei / lock dell'editor
+.fuse_hidden*
 
 # Vite / React
 npm-debug.log*

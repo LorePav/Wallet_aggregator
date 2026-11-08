@@ -72,14 +72,20 @@ def get_portfolio_drawdown(snapshots: List[Dict[str, Any]]) -> List[Dict[str, An
     """
     Calcola il drawdown giornaliero del portafoglio a partire dagli snapshot storici.
 
+    Per evitare che depositi/prelievi falsino il calcolo, il drawdown viene
+    calcolato su un indice TWR (rendimento composto al netto dei flussi):
+    un deposito di 10k€ non fa "salire" l'indice e un prelievo non crea un
+    falso drawdown.
+
     Parametri:
-        snapshots – lista di dict con chiavi "date" (str YYYY-MM-DD) e "total_value" (float)
+        snapshots – lista di dict con chiavi "date" (str YYYY-MM-DD),
+                    "total_value" (float) e "total_invested" (float)
 
     Ritorna una lista di dict con:
         - date: str YYYY-MM-DD
-        - value: valore totale del portafoglio
-        - peak: massimo storico al giorno corrente
-        - drawdown_pct: percentuale di calo rispetto al picco (valore negativo o 0)
+        - value: valore totale del portafoglio (nominale)
+        - twr_index: indice di rendimento al netto dei flussi
+        - drawdown_pct: percentuale di calo rispetto al picco dell'indice
     """
     if not snapshots:
         return []
@@ -88,21 +94,39 @@ def get_portfolio_drawdown(snapshots: List[Dict[str, Any]]) -> List[Dict[str, An
     sorted_snaps = sorted(snapshots, key=lambda x: x["date"])
 
     result = []
+    index = 1.0
     peak = 0.0
+    prev_value = None
+    prev_invested = None
 
     for snap in sorted_snaps:
-        value = snap.get("total_value", 0.0)
-        if value > peak:
-            peak = value
+        value = snap.get("total_value", 0.0) or 0.0
+        invested = snap.get("total_invested")
+        if invested is None:
+            invested = value  # dati vecchi senza total_invested: nessun flusso
+        invested = invested or 0.0
 
-        drawdown_pct = ((value - peak) / peak * 100) if peak > 0 else 0.0
+        if prev_value is not None and prev_value > 0:
+            net_flow = invested - prev_invested
+            daily_return = (value - net_flow) / prev_value - 1.0
+            if abs(daily_return) > 10:  # salti anomali (es. dati mancanti)
+                daily_return = 0.0
+            index *= (1.0 + daily_return)
+
+        if index > peak:
+            peak = index
+
+        drawdown_pct = ((index - peak) / peak * 100) if peak > 0 else 0.0
 
         result.append({
             "date": snap["date"],
             "value": round(value, 2),
-            "peak": round(peak, 2),
+            "twr_index": round(index, 6),
             "drawdown_pct": round(drawdown_pct, 4)
         })
+
+        prev_value = value
+        prev_invested = invested
 
     return result
 
@@ -144,27 +168,37 @@ def get_risk_metrics(snapshots: List[Dict[str, Any]], period: str = "1y") -> Dic
         default_response["error"] = "Dati storici insufficienti (minimo 10 snapshot)."
         return default_response
 
-    # --- Prepara i rendimenti del portafoglio ---
+    # --- Prepara i rendimenti del portafoglio (al netto dei flussi di cassa) ---
+    # Un deposito/acquisto non è rendimento: se usassimo pct_change() sul valore
+    # totale, un versamento di 10k€ apparirebbe come +10k€ di guadagno.
     sorted_snaps = sorted(snapshots, key=lambda x: x["date"])
     df = pd.DataFrame(sorted_snaps)
     df["date"] = pd.to_datetime(df["date"])
     df = df.set_index("date").sort_index()
-    df["portfolio_return"] = df["total_value"].pct_change().dropna()
+
+    if "total_invested" not in df.columns:
+        df["total_invested"] = df["total_value"]
+
+    df["net_flow"] = df["total_invested"].diff().fillna(0.0)
+    df["portfolio_return"] = (df["total_value"] - df["net_flow"]) / df["total_value"].shift(1) - 1.0
+    # Giorni senza valore precedente (o valori a 0): rendimento non calcolabile
+    df["portfolio_return"] = df["portfolio_return"].replace([np.inf, -np.inf], np.nan)
     portfolio_returns = df["portfolio_return"].dropna()
 
     if len(portfolio_returns) < 5:
         default_response["error"] = "Troppo pochi rendimenti calcolabili dagli snapshot."
         return default_response
 
-    # --- Max Drawdown ---
-    rolling_max = df["total_value"].cummax()
-    drawdown = (df["total_value"] - rolling_max) / rolling_max * 100
+    # --- Indice TWR (composto) usato per drawdown e rendimento totale ---
+    twr_index = pd.concat([pd.Series([1.0]), (1.0 + portfolio_returns).cumprod()])
+
+    # --- Max Drawdown (sull'indice TWR, non sul valore nominale) ---
+    rolling_max = twr_index.cummax()
+    drawdown = (twr_index - rolling_max) / rolling_max * 100
     max_drawdown = round(float(drawdown.min()), 4)
 
-    # --- Rendimento totale ---
-    first_value = df["total_value"].iloc[0]
-    last_value = df["total_value"].iloc[-1]
-    total_return = round((last_value - first_value) / first_value * 100, 4) if first_value > 0 else 0.0
+    # --- Rendimento totale (TWR) ---
+    total_return = round((twr_index.iloc[-1] - 1.0) * 100, 4)
 
     # --- Volatilità annualizzata ---
     daily_vol = portfolio_returns.std()
@@ -182,7 +216,12 @@ def get_risk_metrics(snapshots: List[Dict[str, Any]], period: str = "1y") -> Dic
     try:
         sp500 = yf.download("^GSPC", period=period, auto_adjust=True, progress=False)
         if not sp500.empty:
-            sp_returns = sp500["Close"].pct_change().dropna()
+            # yfinance può restituire un DataFrame con colonne multi-indice:
+            # estraiamo Close come Series 1-dimensionale.
+            sp_close = sp500["Close"]
+            if hasattr(sp_close, "squeeze"):
+                sp_close = sp_close.squeeze()
+            sp_returns = sp_close.pct_change().dropna()
 
             # Allinea le date tra portafoglio e benchmark
             port_series = portfolio_returns.copy()

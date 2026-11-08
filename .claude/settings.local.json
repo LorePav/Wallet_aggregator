@@ -4,7 +4,10 @@
       "Bash(node scripts/generate-themes.js)",
       "Bash(venv\\\\Scripts\\\\pip install *)",
       "Bash(venv/Scripts/pip install *)",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import ast, sys; ast.parse\\(open\\('main.py'\\).read\\(\\)\\); print\\('main.py: sintassi OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('crypto_fetcher.py'\\).read\\(\\)\\); print\\('crypto_fetcher.py: sintassi OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('main.py'\\).read\\(\\)\\); ast.parse\\(open\\('crypto_fetcher.py'\\).read\\(\\)\\); print\\('Sintassi OK su entrambi i file'\\)\")"
     ]
   }
 }

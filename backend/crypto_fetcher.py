@@ -29,19 +29,23 @@ def _headers() -> dict:
 
 
 def _get(url: str, params: dict = None, timeout: int = 15) -> requests.Response:
-    """GET con gestione rate-limit (429) e retry automatico."""
+    """GET con gestione rate-limit (429) e retry automatico.
+
+    Piano free CoinGecko: ~10-30 req/min.
+    Sul 429 aspettiamo con backoff esponenziale più lungo (15s, 30s, 60s).
+    """
     for attempt in range(3):
         try:
             r = requests.get(url, params=params, headers=_headers(), timeout=timeout)
             if r.status_code == 429:
-                # CoinGecko rate limit — aspettiamo e riproviamo
-                time.sleep(2 ** attempt)
+                wait = 15 * (2 ** attempt)   # 15s, 30s, 60s
+                time.sleep(wait)
                 continue
             return r
         except requests.RequestException:
             if attempt == 2:
                 raise
-            time.sleep(1)
+            time.sleep(2)
     return r  # type: ignore
 
 
@@ -99,7 +103,7 @@ def fetch_coin_data(coin_id: str) -> dict | None:
     Include: market_data, developer_data, community_data, tickers.
     """
     params = {
-        "localization":    "false",
+        "localization":    "true",   # true = include descrizioni in tutte le lingue (IT incluso)
         "tickers":         "true",
         "market_data":     "true",
         "community_data":  "true",
@@ -187,3 +191,41 @@ def format_large_number(number) -> str:
     if abs(n) >= 1_000:
         return f"{n / 1_000:.2f} K"
     return f"{n:.2f}"
+
+
+def fetch_ohlcv(coin_id: str, days: int | str) -> list:
+    """
+    Scarica dati OHLCV per grafico a candele da CoinGecko.
+    Ritorna lista di {timestamp, open, high, low, close}.
+
+    Granularità CoinGecko (piano free):
+      days=1     → candele da 30 min (~48 candele)
+      days 3-30  → candele da 4 ore
+      days 31+   → candele da 4 giorni
+    """
+    params = {"vs_currency": "usd", "days": str(days)}
+    r = _get(f"{COINGECKO_BASE}/coins/{coin_id}/ohlc", params=params)
+    r.raise_for_status()
+    return [
+        {"timestamp": row[0], "open": row[1], "high": row[2], "low": row[3], "close": row[4]}
+        for row in r.json()
+        if len(row) == 5
+    ]
+
+
+def fetch_defi_fees(slug: str) -> dict | None:
+    """
+    Scarica dati fees/revenue da DeFiLlama per protocolli DeFi.
+    slug: identificativo DeFiLlama (es. "hyperliquid", "uniswap-v3")
+    Ritorna il JSON raw o None se il protocollo non è disponibile.
+    """
+    try:
+        r = requests.get(
+            f"https://api.llama.fi/summary/fees/{slug}",
+            timeout=20,
+        )
+        if r.status_code != 200:
+            return None
+        return r.json()
+    except requests.RequestException:
+        return None

@@ -10,7 +10,7 @@ const Layout = () => {
   const {
     isModalOpen, setIsModalOpen,
     formData, setFormData, handleInputChange, handleSubmit,
-    editingTxId, accountBalances
+    editingTxId, accountBalances, combinedPortfolio
   } = usePortfolioContext();
 
   const location = useLocation();
@@ -45,14 +45,70 @@ const Layout = () => {
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
 
+  // --- Mappatura ricerca ticker → categoria e valuta del form ---
+  const inferCategoryFromSearch = (type) => {
+    const t = (type || '').toUpperCase();
+    if (t === 'CRYPTOCURRENCY') return 'Crypto';
+    if (t === 'ETF') return 'ETF';
+    if (t === 'EQUITY') return 'Azioni';
+    return 'Azioni';
+  };
+
+  const inferCurrencyFromSearch = (result) => {
+    const symbol = (result.symbol || '').toUpperCase();
+    const exchange = (result.exchange || '').toUpperCase();
+    const type = (result.type || '').toUpperCase();
+
+    // Suffisso nel simbolo (es. ENI.MI, VOD.L)
+    if (symbol.endsWith('.L')) return 'GBP';
+    if (symbol.endsWith('.SW')) return 'CHF';
+    if (['.MI', '.DE', '.PA', '.AS', '.MC', '.BR', '.LS', '.VI', '.IR'].some(s => symbol.endsWith(s))) return 'EUR';
+    if (symbol.endsWith('.TO') || symbol.endsWith('.V')) return 'CAD';
+    if (symbol.endsWith('.T')) return 'JPY';
+    if (symbol.endsWith('.HK')) return 'HKD';
+
+    // Borse USA → USD
+    if (/^(NYQ|NMS|NGM|NYS|NYSE|NASDAQ|PCX|ASE|BATS|PNK|OQX|OTC)/.test(exchange)) return 'USD';
+    // Borse europee → EUR
+    if (/(MIL|MTA|GER|FRA|STU|BER|HAM|DUS|MUN|XETRA|PAR|AMS|MAD|BRU|LIS|VIE|BME|LISBON)/.test(exchange)) return 'EUR';
+    // Londra → GBP
+    if (/(LON|LSE)/.test(exchange)) return 'GBP';
+    // Svizzera → CHF
+    if (/(EBS|SWX|ZURICH)/.test(exchange)) return 'CHF';
+    // Toronto → CAD, Tokyo → JPY, Hong Kong → HKD
+    if (/(TOR|TSX|TSE)/.test(exchange)) return 'CAD';
+    if (/(TYO|TKS|OSE)/.test(exchange)) return 'JPY';
+    if (/(HKG|HKEX)/.test(exchange)) return 'HKD';
+
+    // Cripto e coppie valutarie quotano in USD
+    if (type === 'CRYPTOCURRENCY' || type === 'CURRENCY') return 'USD';
+    return 'EUR';
+  };
+
   const handleSelectTicker = (result) => {
     setFormData(prev => ({
       ...prev,
       symbol: result.symbol,
-      name: result.name || ''
+      name: result.name || '',
+      category: inferCategoryFromSearch(result.type),
+      currency: inferCurrencyFromSearch(result)
     }));
     setSearchTerm(''); // Puliamo il campo di ricerca: i campi sotto sono già compilati
     setShowDropdown(false);
+  };
+
+  // Dividendi e Farming: il simbolo deve essere un asset esistente, così il
+  // guadagno realizzato viene attribuito all'asset corretto.
+  const handleIncomeAssetChange = (e) => {
+    const symbol = e.target.value;
+    const asset = combinedPortfolio.find(i => !i.isLiquidity && i.symbol === symbol);
+    setFormData(prev => ({
+      ...prev,
+      symbol,
+      name: asset?.name || '',
+      category: asset?.category || prev.category,
+      currency: asset?.currency || prev.currency
+    }));
   };
 
   return (
@@ -96,15 +152,28 @@ const Layout = () => {
                     <label>Data</label>
                     <input type="date" className="form-control" name="date" value={formData.date} onChange={handleInputChange} required />
                   </div>
-                  {(formData.type === 'Deposit' || formData.type === 'Withdrawal' || formData.type === 'Dividend' || formData.type === 'Farming DeFi') ? (
+                  {(formData.type === 'Deposit' || formData.type === 'Withdrawal') ? (
                     <div className="form-group">
-                      <label>Valuta Flusso di Cassa / Entrata</label>
+                      <label>Valuta Flusso di Cassa</label>
                       <select className="form-control" name="symbol" value={formData.symbol} onChange={handleInputChange} required>
                         <option value="EUR">Euro (EUR)</option>
                         <option value="USD">Dollaro (USD)</option>
                         <option value="GBP">Sterlina (GBP)</option>
                         <option value="JPY">Yen (JPY)</option>
                       </select>
+                    </div>
+                  ) : (formData.type === 'Dividend' || formData.type === 'Farming DeFi') ? (
+                    <div className="form-group">
+                      <label>Asset Collegato <span style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>*</span></label>
+                      <select className="form-control" name="symbol" value={formData.symbol} onChange={handleIncomeAssetChange} required>
+                        <option value="">Seleziona un asset del portafoglio...</option>
+                        {combinedPortfolio.filter(i => !i.isLiquidity && !['EUR', 'USD', 'GBP', 'JPY', 'CHF'].includes(i.symbol)).map(i => (
+                          <option key={i.uniqueId} value={i.symbol}>{i.symbol} — {i.name}</option>
+                        ))}
+                      </select>
+                      <span className="text-secondary" style={{ fontSize: '0.8rem', marginTop: '6px', display: 'block' }}>
+                        Il guadagno viene attribuito a questo asset e accreditato nella sua valuta.
+                      </span>
                     </div>
                   ) : (
                     <>
@@ -168,11 +237,20 @@ const Layout = () => {
                       <option value="Liquidità">Liquidità Cassa</option>
                     </select>
                   </div>
+                  {formData.category === 'FARMING' && formData.type !== 'Dividend' && formData.type !== 'Farming DeFi' && (
+                    <div style={{ gridColumn: '1 / -1', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '-0.5rem' }}>
+                      Le posizioni Farming sono valutate al costo di acquisto (nessun prezzo di mercato).
+                      Registra i rendimenti con il tipo "Farming (DeFi)".
+                    </div>
+                  )}
                   <div className="form-group">
                     <label>Valuta Base</label>
                     <select className="form-control" name="currency" value={formData.currency} onChange={handleInputChange} required>
                       <option value="EUR">Euro (€)</option>
                       <option value="USD">Dollaro ($)</option>
+                      <option value="GBP">Sterlina (£)</option>
+                      <option value="CHF">Franco (CHF)</option>
+                      <option value="JPY">Yen (¥)</option>
                     </select>
                   </div>
                   <div className="form-group">

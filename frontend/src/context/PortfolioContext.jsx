@@ -1,3 +1,7 @@
+/* eslint-disable react-refresh/only-export-components --
+   Questo file esporta di proposito il context, l'hook e piccoli componenti
+   condivisi: separarli richiederebbe di toccare decine di import senza alcun
+   beneficio funzionale. L'avviso riguarda solo l'hot-reload in sviluppo. */
 import React, { createContext, useContext, useEffect, useMemo } from 'react'
 import '../index.css'
 
@@ -83,7 +87,9 @@ export const PortfolioProvider = ({ children }) => {
     document.documentElement.style.setProperty('--font-family', ui.themeFont);
   }, [ui.themeColor, ui.themeBg, ui.themeFont]);
 
-  // Fetch dati all'avvio
+  // Fetch dati all'avvio.
+  // Volutamente solo al mount: queste funzioni cambiano identità a ogni render
+  // (dipendono dallo stato UI) e includerle causerebbe fetch ripetuti.
   useEffect(() => {
     currency.fetchFxRates();
     data.fetchPortfolio();
@@ -91,6 +97,7 @@ export const PortfolioProvider = ({ children }) => {
     data.fetchLiquidity();
     data.fetchSnapshots();
     data.fetchBenchmark();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-Refresh
@@ -100,15 +107,17 @@ export const PortfolioProvider = ({ children }) => {
       intervalId = setInterval(() => { data.fetchPortfolio(); }, ui.refreshInterval);
     }
     return () => clearInterval(intervalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.autoRefresh, ui.refreshInterval]);
 
   // --- Computed Data ---
-  // Combiniamo portafoglio con la Cassa
-  const combinedPortfolio = [...data.portfolio].map(item => ({ ...item, uniqueId: item.symbol }));
-  combinedPortfolio.forEach(item => {
-    const assetTxs = data.transactions.filter(t => t.symbol === item.symbol && t.type === 'Buy');
-    item.account = assetTxs.length > 0 ? (assetTxs[0].account || 'Default') : 'Default';
-  });
+  // Combiniamo portafoglio con la Cassa. Il backend ora aggrega per
+  // (simbolo, conto): l'id unico deve includere anche il conto.
+  const combinedPortfolio = [...data.portfolio].map(item => ({
+    ...item,
+    account: item.account || 'Default',
+    uniqueId: `${item.symbol}::${item.account || 'Default'}`
+  }));
 
   Object.entries(data.liquidity).forEach(([key, amount]) => {
     if (amount !== 0) {
@@ -155,7 +164,13 @@ export const PortfolioProvider = ({ children }) => {
   // Calcoli Globali (in display currency, per UI cards)
   const totalValue = combinedPortfolio.reduce((acc, item) => acc + convertValue(item.current_value, item.currency), 0);
   const totalInvested = combinedPortfolio.reduce((acc, item) => acc + convertValue(item.total_invested || 0, item.currency), 0);
-  const totalGain = totalValue - totalInvested;
+  // I guadagni realizzati (vendite chiuse, dividendi, farming) non sono più
+  // inclusi nel valore corrente: vanno sommati esplicitamente.
+  const totalRealizedGain = combinedPortfolio.reduce(
+    (acc, item) => acc + convertValue(item.realized_gain || 0, item.currency),
+    0
+  );
+  const totalGain = totalValue - totalInvested + totalRealizedGain;
   const totalGainPercent = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
 
   // Totali SEMPRE in EUR per il punto live del grafico storico.
@@ -335,7 +350,19 @@ export const PortfolioProvider = ({ children }) => {
   };
 
   // Passive Income Stats
+  // I totali vengono convertiti nella valuta di visualizzazione: dividendo in
+  // USD con display in EUR deve mostrare il valore convertito, non il grezzo.
   const passiveIncomeStats = useMemo(() => {
+    const fx = currency.fxRates;
+    const display = currency.displayCurrency;
+    const conv = (amount, itemCurrency) => {
+        if (itemCurrency === display) return amount;
+        if (itemCurrency === 'USD' && display === 'EUR') return amount / (fx['USD'] || 1.0);
+        if (itemCurrency === 'EUR' && display === 'USD') return amount * (fx['USD'] || 1.0);
+        const eurValue = amount * ((itemCurrency === 'EUR') ? 1.0 : (1 / (fx[itemCurrency] || 1.0)));
+        return (display === 'EUR') ? eurValue : (eurValue * (fx[display] || 1.0));
+    };
+
     const currentYear = new Date().getFullYear();
     const stats = Array.from({ length: 12 }, (_, i) => ({
       month: new Date(2000, i, 1).toLocaleString('it-IT', { month: 'short' }),
@@ -346,12 +373,24 @@ export const PortfolioProvider = ({ children }) => {
       const txDate = new Date(tx.date);
       if (txDate.getFullYear() === currentYear) {
         const m = txDate.getMonth();
-        if (tx.type === 'Dividend') { stats[m].Dividendi += tx.total; stats[m].Totale += tx.total; totalDividends += tx.total; }
-        else if (tx.type === 'Farming DeFi') { stats[m].Farming += tx.total; stats[m].Totale += tx.total; totalFarming += tx.total; }
+        const value = conv(tx.total || 0, tx.currency || 'EUR');
+        if (tx.type === 'Dividend') { stats[m].Dividendi += value; stats[m].Totale += value; totalDividends += value; }
+        else if (tx.type === 'Farming DeFi') { stats[m].Farming += value; stats[m].Totale += value; totalFarming += value; }
       }
     });
     return { monthly: stats, totalDividends, totalFarming, year: currentYear };
-  }, [data.transactions]);
+  }, [data.transactions, currency.fxRates, currency.displayCurrency]);
+
+  // Reset completo: dati sul server + preferenze locali legate al portafoglio
+  // (override grafici, asset nascosti, ordini, colori). Se l'utente annulla il
+  // confirm, non tocchiamo nulla.
+  const handleResetPortfolio = async () => {
+    const done = await data.handleResetPortfolio();
+    if (done) {
+      snapshotOverrides.clearAllOverrides();
+      ui.resetUIPreferences();
+    }
+  };
 
   // --- Build the Context Value ---
   const contextValue = {
@@ -368,15 +407,15 @@ export const PortfolioProvider = ({ children }) => {
     snapshots: data.snapshots, benchmarkData: data.benchmarkData,
     // Data Actions
     fetchPortfolio: data.fetchPortfolio, fetchTransactions: data.fetchTransactions,
-    fetchLiquidity: data.fetchLiquidity,
+    fetchLiquidity: data.fetchLiquidity, refreshSnapshots: data.refreshSnapshots,
     handleSubmit: data.handleSubmit, handleTransferSubmit: data.handleTransferSubmit,
     handleEditTransaction: data.handleEditTransaction, handleDeleteTransaction: data.handleDeleteTransaction,
-    handleResetPortfolio: data.handleResetPortfolio,
+    handleResetPortfolio: handleResetPortfolio,
     handleOpenDeepDive: data.handleOpenDeepDive, handleCloseDeepDive: data.handleCloseDeepDive,
     handleOpenAccountDeepDive: data.handleOpenAccountDeepDive, handleCloseAccountDeepDive: data.handleCloseAccountDeepDive,
     // Computed
     combinedPortfolio, accountBalances,
-    totalValue, totalInvested, totalGain, totalGainPercent,
+    totalValue, totalInvested, totalGain, totalGainPercent, totalRealizedGain,
     processedAssetData, categoryData,
     sortedPortfolio, sortedTransactions,
     requestSort, getSortIcon,

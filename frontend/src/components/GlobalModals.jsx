@@ -1,6 +1,7 @@
 import React from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { usePortfolioContext } from '../context/PortfolioContext';
+import AssetIcon from './AssetIcon';
 
 const GlobalModals = () => {
     const {
@@ -42,6 +43,7 @@ const GlobalModals = () => {
                         <div className="modal-header">
                             <div>
                                 <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <AssetIcon symbol={selectedAsset.symbol} name={selectedAsset.name} category={selectedAsset.category} size={32} />
                                     {selectedAsset.symbol} <span className="text-secondary" style={{ fontSize: '1rem', fontWeight: 'normal' }}>{selectedAsset.name}</span>
                                 </h2>
                                 <span style={{
@@ -394,7 +396,7 @@ const GlobalModals = () => {
                                                                 setFocusedDeepDiveAsset(focusedDeepDiveAsset === data.name ? null : data.name);
                                                             }
                                                         }}
-                                                        label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
+                                                        label={({ cx, cy, midAngle, outerRadius, percent, name }) => {
                                                             if (percent <= 0 || hiddenDeepDiveAssets[name]) return null;
                                                             const radius = outerRadius + 15;
                                                             const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
@@ -407,7 +409,7 @@ const GlobalModals = () => {
                                                         }}
                                                         style={{ cursor: 'pointer', filter: 'url(#shadow-acc)' }}
                                                     >
-                                                        {accountData.filter(d => !hiddenDeepDiveAssets[d.name]).map((entry, index) => {
+                                                        {accountData.filter(d => !hiddenDeepDiveAssets[d.name]).map((entry) => {
                                                             const originalIndex = accountData.findIndex(x => x.name === entry.name);
                                                             const isHovered = hoveredDeepDiveAsset === entry.name;
                                                             const isFocused = focusedDeepDiveAsset === entry.name;

@@ -50,7 +50,7 @@ const AccountSettings = () => {
   const handleLinkProvider = async (provider) => {
     try {
       setActionError(null);
-      const { data, error } = await supabase.auth.linkIdentity({
+      const { error } = await supabase.auth.linkIdentity({
         provider: provider,
         options: {
           redirectTo: `${window.location.origin}/account`

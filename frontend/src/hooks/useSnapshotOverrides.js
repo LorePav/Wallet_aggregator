@@ -11,7 +11,7 @@ export const useSnapshotOverrides = () => {
     const [overrides, setOverrides] = useState(() => {
         try {
             return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-        } catch (e) {
+        } catch {
             return {};
         }
     });

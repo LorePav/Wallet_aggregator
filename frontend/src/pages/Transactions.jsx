@@ -2,6 +2,7 @@ import React from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, Bar, Scatter, ReferenceLine, PieChart, Pie, Cell, Tooltip, Line } from 'recharts';
 import { usePortfolioContext } from '../context/PortfolioContext';
 import PageTransition from '../components/PageTransition';
+import AssetIcon from '../components/AssetIcon';
 
 const TX_BADGE_MAP = {
   'Buy':          { cls: 'tx-badge--buy',  label: 'Compra' },
@@ -23,6 +24,15 @@ const Transactions = () => {
 
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 15;
+
+  // Serve per passare nome e categoria (e quindi il logo giusto) a ogni riga.
+  const assetMetaBySymbol = React.useMemo(() => {
+    const map = {};
+    (ctx.combinedPortfolio || []).forEach((asset) => {
+      if (asset.symbol && !map[asset.symbol]) map[asset.symbol] = asset;
+    });
+    return map;
+  }, [ctx.combinedPortfolio]);
 
   React.useEffect(() => {
     setCurrentPage(1);
@@ -71,6 +81,7 @@ const Transactions = () => {
               <option value="Buy">Compra</option>
               <option value="Sell">Vendi</option>
               <option value="Dividend">Dividendo</option>
+              <option value="Farming DeFi">Farming (DeFi)</option>
               <option value="Deposit">Deposito</option>
               <option value="Withdrawal">Prelievo</option>
             </select>
@@ -106,6 +117,7 @@ const Transactions = () => {
                 {currentTxs.map(tx => {
                   const c = tx.currency || 'EUR';
                   const sym = { 'EUR': '€', 'USD': '$', 'GBP': '£', 'JPY': '¥', 'CHF': 'CHF' }[c] || c + ' ';
+                  const assetMeta = assetMetaBySymbol[tx.symbol];
                   return (
                     <tr key={tx.id}>
                       <td style={{ padding: '0.8rem' }}>{new Date(tx.date).toLocaleDateString('it-IT')}</td>
@@ -114,18 +126,17 @@ const Transactions = () => {
                       </td>
                       <td style={{ padding: '0.8rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{
-                            width: '28px', height: '28px', borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            backgroundColor: ['EUR', 'USD', 'GBP', 'CHF'].includes(tx.symbol) ? 'rgba(16, 185, 129, 0.2)' : 'var(--surface-hover)',
-                            border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0, fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--accent)'
-                          }}>
-                            {['EUR', 'USD', 'GBP', 'CHF'].includes(tx.symbol) ? '💵' : ctx.getInitials(tx.symbol)}
-                          </div>
+                          <AssetIcon
+                            symbol={tx.symbol}
+                            name={assetMeta?.name}
+                            category={assetMeta?.category || (['EUR', 'USD', 'GBP', 'CHF'].includes(tx.symbol) ? 'Liquidità' : '')}
+                            size={28}
+                          />
                           <span style={{ fontWeight: '600' }}>{tx.symbol}</span>
                         </div>
                       </td>
                       <td style={{ padding: '0.8rem', fontWeight: '500' }}>{tx.quantity}</td>
-                      <td style={{ padding: '0.8rem' }}>{sym}{(tx.price || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
+                      <td style={{ padding: '0.8rem' }}>{sym}{(tx.price || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: (Math.abs(tx.price || 0) > 0 && Math.abs(tx.price || 0) < 1) ? 10 : 4 })}</td>
                       <td style={{ padding: '0.8rem' }}>{sym}{(tx.fees || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}</td>
                       <td style={{ padding: '0.8rem', fontWeight: '600', color: 'white' }}>{sym}{(tx.total || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}</td>
                       <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{tx.account || 'Default'}</td>

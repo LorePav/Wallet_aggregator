@@ -31,18 +31,31 @@ def fetch_all_data(ticker_symbol: str) -> dict:
     ticker = yf.Ticker(ticker_symbol.upper())
 
     # Scarichiamo le informazioni generali (nome, settore, P/E, dividendi, ecc.)
-    info = ticker.info
+    # ticker.info può sollevare eccezioni (rate limit / rete): in quel caso
+    # trattiamo il ticker come non disponibile invece di far crashare l'endpoint.
+    try:
+        info = ticker.info
+    except Exception:
+        info = None
 
-    # Se il dizionario info è vuoto o non ha il nome dell'azienda, il ticker è sbagliato
-    if not info or info.get("shortName") is None:
+    # Accettiamo sia shortName che longName: alcuni ticker (soprattutto ETF e
+    # borse non USA) non espongono shortName ma hanno comunque un nome valido.
+    if not info or not (info.get("shortName") or info.get("longName")):
         return None
 
     # ----------------------------------------------------------------
     # 1. DATI STORICI DEI PREZZI (ultimi 5 anni)
     #    history() scarica il prezzo di apertura, chiusura, volume, ecc.
     # ----------------------------------------------------------------
-    history_5y = ticker.history(period="5y")    # 5 anni di dati giornalieri
-    history_1y = ticker.history(period="1y")    # 1 anno (per il grafico principale)
+    try:
+        history_5y = ticker.history(period="5y")    # 5 anni di dati giornalieri
+    except Exception:
+        history_5y = pd.DataFrame()
+
+    try:
+        history_1y = ticker.history(period="1y")    # 1 anno (per il grafico principale)
+    except Exception:
+        history_1y = pd.DataFrame()
 
     # ----------------------------------------------------------------
     # 2. BILANCIO ANNUALE (Income Statement = Conto Economico)

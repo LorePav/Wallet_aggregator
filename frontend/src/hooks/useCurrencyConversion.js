@@ -38,7 +38,16 @@ export const useCurrencyConversion = () => {
 
         const symbols = { 'EUR': '€', 'USD': '$', 'GBP': '£', 'JPY': '¥', 'CHF': 'CHF' };
         const sym = symbols[displayCurrency] || displayCurrency + ' ';
-        return `${sym}${convertedAmount.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: maxFract })}`;
+        // Per i prezzi (maxFract > 2) mostriamo più decimali sugli asset molto
+        // economici, altrimenti una crypto da 0.000012 apparirebbe come 0,0000.
+        let effectiveMax = maxFract;
+        const absAmount = Math.abs(convertedAmount);
+        if (maxFract > 2 && absAmount > 0) {
+            if (absAmount < 0.0001) effectiveMax = Math.max(maxFract, 10);
+            else if (absAmount < 0.01) effectiveMax = Math.max(maxFract, 8);
+            else if (absAmount < 1) effectiveMax = Math.max(maxFract, 6);
+        }
+        return `${sym}${convertedAmount.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: effectiveMax })}`;
     }, [displayCurrency, fxRates]);
 
     const handleCurrencyChange = useCallback((e) => {

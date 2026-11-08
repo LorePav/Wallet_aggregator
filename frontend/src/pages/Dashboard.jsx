@@ -22,6 +22,9 @@ const Dashboard = () => {
   const [overrideValue, setOverrideValue] = useState('');
   const [isActionsOpen, setIsActionsOpen] = useState(false);
 
+  // Gli snapshot del grafico sono in EUR: fattore per l'asse in valuta visualizzata
+  const displayRate = ctx.displayCurrency === 'EUR' ? 1 : (ctx.fxRates[ctx.displayCurrency] || 1);
+
   // handleDotClick receives the Recharts dot event data directly
   const handleDotClick = (dotData) => {
     const payload = dotData?.payload || dotData;
@@ -110,7 +113,7 @@ const Dashboard = () => {
                     </button>
                     <button
                       className="btn btn-outline"
-                      onClick={() => { ctx.fetchPortfolio(); ctx.fetchTransactions(); ctx.fetchLiquidity(); setIsActionsOpen(false); }}
+                      onClick={() => { ctx.refreshSnapshots(); ctx.fetchTransactions(); ctx.fetchLiquidity(); setIsActionsOpen(false); }}
                       style={{ border: 'none', textAlign: 'left', padding: '0.6rem 0.8rem', justifyContent: 'flex-start', color: 'var(--text-primary)' }}
                     >
                       ↻ Aggiorna Prezzi
@@ -166,7 +169,7 @@ const Dashboard = () => {
               </div>
               {ctx.filteredSnapshots?.length > 0 && ctx.historyPeriod !== 'ALL' && (
                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.6rem' }}>
-                    Rispetto a inizio {ctx.historyPeriod}: <span style={{ color: ctx.periodGain >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight: '600' }}>{ctx.periodGain >= 0 ? '+' : ''}{ctx.formatCurrency(ctx.periodGain, ctx.displayCurrency)}</span>
+                    Rispetto a inizio {ctx.historyPeriod}: <span style={{ color: ctx.periodGain >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight: '600' }}>{ctx.periodGain >= 0 ? '+' : ''}{ctx.formatCurrency(ctx.periodGain, 'EUR')}</span>
                  </div>
               )}
             </SpotlightCard>
@@ -322,7 +325,11 @@ const Dashboard = () => {
                         <ComposedChart data={ctx.passiveIncomeStats.monthly} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
                           <XAxis dataKey="month" stroke="var(--text-secondary)" tick={{ fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} />
-                          <YAxis stroke="var(--text-secondary)" tick={{ fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} tickFormatter={(val) => '€' + val} />
+                          <YAxis stroke="var(--text-secondary)" tick={{ fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} tickFormatter={(val) => {
+                            const prefix = ctx.displayCurrency === 'USD' ? '$' : '€';
+                            const v = val >= 1000 ? (val / 1000).toFixed(1) + 'k' : val;
+                            return prefix + v;
+                          }} />
                           <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-dark)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} formatter={(val) => ctx.formatCurrency(val, ctx.displayCurrency)} />
                           <Legend />
                           <Bar dataKey="Dividendi" stackId="a" fill="var(--accent)" radius={[0, 0, 0, 0]} />
@@ -344,7 +351,7 @@ const Dashboard = () => {
                   <h3 style={{ margin: 0 }}>📈 Andamento Storico Portafoglio</h3>
                   {ctx.sections.chart && ctx.historyPeriod !== 'ALL' && ctx.filteredSnapshots.length > 0 && (
                     <span style={{ fontSize: '0.9rem', color: ctx.periodGain >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
-                      {ctx.periodGain >= 0 ? '▲' : '▼'} {ctx.formatCurrency(Math.abs(ctx.periodGain), ctx.displayCurrency)} ({ctx.periodGain >= 0 ? '+' : ''}{ctx.periodGainPercent.toFixed(2)}%)
+                      {ctx.periodGain >= 0 ? '▲' : '▼'} {ctx.formatCurrency(Math.abs(ctx.periodGain), 'EUR')} ({ctx.periodGain >= 0 ? '+' : ''}{ctx.periodGainPercent.toFixed(2)}%)
                     </span>
                   )}
                   {ctx.sections.chart && ctx.chartMode === 'percentage' && ctx.maxDrawdown < 0 && (
@@ -437,7 +444,6 @@ const Dashboard = () => {
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                         {(() => {
-                          const showDots = ['1G', '1S', '1M'].includes(ctx.historyPeriod);
                           let customTicks = undefined;
                           if (ctx.historyPeriod === '1S' || ctx.historyPeriod === '1G') {
                             customTicks = ctx.filteredSnapshots.map(d => d.time);
@@ -479,7 +485,7 @@ const Dashboard = () => {
                               yAxisId="left"
                               stroke="rgba(255,255,255,0.4)"
                               tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }}
-                              tickFormatter={(value) => { const prefix = ctx.displayCurrency === 'USD' ? '$' : '€'; return `${prefix}${value >= 1000 ? (value / 1000).toFixed(1) + 'k' : value}`; }}
+                              tickFormatter={(value) => { const prefix = ctx.displayCurrency === 'USD' ? '$' : '€'; const v = value * displayRate; return `${prefix}${v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v}`; }}
                               domain={['auto', 'auto']}
                             />
                             <YAxis
@@ -635,12 +641,12 @@ const Dashboard = () => {
                           outerRadius={110}
                           paddingAngle={2}
                           dataKey="value"
-                          onClick={(data, index) => {
+                          onClick={(data) => {
                             if (data && data.name) {
                               ctx.setFocusedAsset(ctx.focusedAsset === data.name ? null : data.name);
                             }
                           }}
-                          label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
+                          label={({ cx, cy, midAngle, outerRadius, percent, name }) => {
                             // Recharts provides `percent` come decimale (0 to 1). Mostriamo tutto ciò che non è nascosto.
                             if (percent <= 0 || ctx.hiddenAssets[name]) return null;
                             const radius = outerRadius + 15;
@@ -654,7 +660,7 @@ const Dashboard = () => {
                           }}
                           style={{ cursor: 'pointer', filter: 'url(#shadow)' }}
                         >
-                          {ctx.processedAssetData.filter(d => !ctx.hiddenAssets[d.name]).map((entry, index) => {
+                          {ctx.processedAssetData.filter(d => !ctx.hiddenAssets[d.name]).map((entry) => {
                             const originalIndex = ctx.processedAssetData.findIndex(x => x.name === entry.name);
                             const isHovered = ctx.hoveredAsset === entry.name;
                             const isFocused = ctx.focusedAsset === entry.name;
@@ -776,12 +782,12 @@ const Dashboard = () => {
                           outerRadius={110}
                           paddingAngle={2}
                           dataKey="value"
-                          onClick={(data, index) => {
+                          onClick={(data) => {
                             if (data && data.name) {
                               ctx.setFocusedCategory(ctx.focusedCategory === data.name ? null : data.name);
                             }
                           }}
-                          label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
+                          label={({ cx, cy, midAngle, outerRadius, percent, name }) => {
                             if (percent <= 0 || ctx.hiddenCategories[name]) return null;
                             const radius = outerRadius + 15;
                             const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
@@ -794,7 +800,7 @@ const Dashboard = () => {
                           }}
                           style={{ cursor: 'pointer', filter: 'url(#shadow-cat)' }}
                         >
-                          {ctx.categoryData.filter(d => !ctx.hiddenCategories[d.name]).map((entry, index) => {
+                          {ctx.categoryData.filter(d => !ctx.hiddenCategories[d.name]).map((entry) => {
                             const originalIndex = ctx.categoryData.findIndex(x => x.name === entry.name);
                             const isHovered = ctx.hoveredCategory === entry.name;
                             const isFocused = ctx.focusedCategory === entry.name;

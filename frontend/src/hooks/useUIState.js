@@ -71,35 +71,35 @@ export const useUIState = () => {
     // Custom Colors
     const [customColors, setCustomColors] = useState(() => {
         try { return JSON.parse(localStorage.getItem('customColors')) || {}; }
-        catch (e) { return {}; }
+        catch { return {}; }
     });
 
     // Visually Hidden Assets
     const [visuallyHiddenAssets, setVisuallyHiddenAssets] = useState(() => {
         try { return JSON.parse(localStorage.getItem('visuallyHiddenAssets')) || {}; }
-        catch (e) { return {}; }
+        catch { return {}; }
     });
 
     // Custom Orders (localStorage backed)
     const [customAssetOrder, setCustomAssetOrder] = useState(() => {
         try { return JSON.parse(localStorage.getItem('customAssetOrder')) || []; }
-        catch (e) { return []; }
+        catch { return []; }
     });
     const [pieAssetOrder, setPieAssetOrder] = useState(() => {
         try { return JSON.parse(localStorage.getItem('pieAssetOrder')) || []; }
-        catch (e) { return []; }
+        catch { return []; }
     });
     const [pieCategoryOrder, setPieCategoryOrder] = useState(() => {
         try { return JSON.parse(localStorage.getItem('pieCategoryOrder')) || []; }
-        catch (e) { return []; }
+        catch { return []; }
     });
     const [pieAccountOrder, setPieAccountOrder] = useState(() => {
         try { return JSON.parse(localStorage.getItem('pieAccountOrder')) || []; }
-        catch (e) { return []; }
+        catch { return []; }
     });
     const [accountBalancesOrder, setAccountBalancesOrder] = useState(() => {
         try { return JSON.parse(localStorage.getItem('accountBalancesOrder')) || []; }
-        catch (e) { return []; }
+        catch { return []; }
     });
 
     // Form Data
@@ -126,6 +126,32 @@ export const useUIState = () => {
         });
     };
 
+    // Ripristina tutte le preferenze legate agli asset (usato dal reset del
+    // portafoglio). Non tocca tema, valuta di visualizzazione e intervallo di
+    // refresh: sono preferenze generali dell'app, non dati del portafoglio.
+    const resetUIPreferences = () => {
+        [
+            'customColors',
+            'visuallyHiddenAssets',
+            'customAssetOrder',
+            'pieAssetOrder',
+            'pieCategoryOrder',
+            'pieAccountOrder',
+            'accountBalancesOrder',
+        ].forEach(key => localStorage.removeItem(key));
+
+        setCustomColors({});
+        setVisuallyHiddenAssets({});
+        setCustomAssetOrder([]);
+        setPieAssetOrder([]);
+        setPieCategoryOrder([]);
+        setPieAccountOrder([]);
+        setAccountBalancesOrder([]);
+        setHiddenAssets({});
+        setHiddenCategories({});
+        setHiddenDeepDiveAssets({});
+    };
+
     const handleIntervalChange = (e) => {
         const val = parseInt(e.target.value, 10);
         setRefreshInterval(val);
@@ -146,14 +172,29 @@ export const useUIState = () => {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        let newFormData = { ...formData, [name]: value };
-        if (name === 'type' && (value === 'Deposit' || value === 'Withdrawal')) {
-            if (!['EUR', 'USD', 'GBP', 'JPY'].includes(newFormData.symbol)) {
-                newFormData.symbol = 'EUR';
+        const newFormData = { ...formData, [name]: value };
+        if (name === 'type') {
+            const isCash = value === 'Deposit' || value === 'Withdrawal';
+            const isIncome = value === 'Dividend' || value === 'Farming DeFi';
+            if (isCash) {
+                if (!['EUR', 'USD', 'GBP', 'JPY'].includes(newFormData.symbol)) {
+                    newFormData.symbol = 'EUR';
+                }
+                newFormData.category = 'Liquidità';
+            } else {
+                if (formData.category === 'Liquidità') {
+                    newFormData.category = 'Azioni';
+                }
+                if (isIncome) {
+                    // Per dividendi/farming il simbolo è l'asset collegato, non una valuta:
+                    // se arriviamo da un flusso di cassa svuotiamolo.
+                    if (['EUR', 'USD', 'GBP', 'JPY'].includes(newFormData.symbol)) {
+                        newFormData.symbol = '';
+                    }
+                    newFormData.name = '';
+                    newFormData.price = '';
+                }
             }
-            newFormData.category = 'Liquidità';
-        } else if (name === 'type' && formData.category === 'Liquidità' && value !== 'Deposit' && value !== 'Withdrawal') {
-            newFormData.category = 'Azioni';
         }
         setFormData(newFormData);
     };
@@ -210,6 +251,7 @@ export const useUIState = () => {
         editingTxId, setEditingTxId,
         // Colors & Visibility
         customColors, handleColorChange, visuallyHiddenAssets, toggleVisualHiddenAsset,
+        resetUIPreferences,
         // Orders
         customAssetOrder, setCustomAssetOrder,
         pieAssetOrder, setPieAssetOrder, pieCategoryOrder, setPieCategoryOrder,

@@ -5,10 +5,13 @@ psycopg2-binary
 requests
 yfinance
 python-dotenv
-apscheduler
+apscheduler>=3.10,<4.0
 google-auth
 google-api-python-client
 pandas
 numpy
 python-docx>=1.1.0
 fpdf2>=2.7.9
+# --- Ailyst: Market Intelligence ---
+feedparser>=6.0.10
+vaderSentiment>=3.3.2

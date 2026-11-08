@@ -2,6 +2,25 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+// Componente fuori dal render: ricrearlo a ogni render faceva perdere lo stato
+// del tooltip a Recharts e produceva un avviso ESLint.
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    const { drawdown_pct, value, twr_index } = payload[0].payload;
+    return (
+      <div style={{ backgroundColor: 'rgba(20,20,20,0.9)', padding: '1rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>{label}</p>
+        <p style={{ color: 'var(--danger)', fontWeight: 'bold' }}>Drawdown: {drawdown_pct.toFixed(2)}%</p>
+        <p style={{ color: 'var(--text-primary)', fontSize: '0.8rem', marginTop: '0.2rem' }}>Valore: €{value.toLocaleString()}</p>
+        {twr_index != null && (
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem' }}>Indice TWR: {twr_index.toFixed(4)}</p>
+        )}
+      </div>
+    );
+  }
+  return null;
+};
+
 const DrawdownChart = ({ data, isLoading }) => {
   if (isLoading) {
     return (
@@ -25,21 +44,6 @@ const DrawdownChart = ({ data, isLoading }) => {
     return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear().toString().substr(-2)}`;
   };
 
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      const { drawdown_pct, value, peak } = payload[0].payload;
-      return (
-        <div style={{ backgroundColor: 'rgba(20,20,20,0.9)', padding: '1rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>{label}</p>
-          <p style={{ color: 'var(--danger)', fontWeight: 'bold' }}>Drawdown: {drawdown_pct.toFixed(2)}%</p>
-          <p style={{ color: 'var(--text-primary)', fontSize: '0.8rem', marginTop: '0.2rem' }}>Valore: €{value.toLocaleString()}</p>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem' }}>Picco: €{peak.toLocaleString()}</p>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <motion.div 
       className="card"
@@ -49,7 +53,7 @@ const DrawdownChart = ({ data, isLoading }) => {
     >
       <h3 style={{ marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Drawdown Storico</h3>
       <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.4)', marginBottom: '2rem' }}>
-        Distanza percentuale dal massimo valore storico raggiunto dal portafoglio. Più l'area scende, maggiore è la sofferenza ("Drawdown").
+        Distanza percentuale dal massimo storico del rendimento (indice TWR), calcolato al netto di depositi e prelievi. Più l'area scende, maggiore è la sofferenza ("Drawdown").
       </p>
 
       <div style={{ width: '100%', height: 300 }}>

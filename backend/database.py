@@ -8,7 +8,15 @@ from sqlalchemy.orm import sessionmaker
 load_dotenv()
 
 # Lettura URL del DB dall'ambiente. Fallback: SQLite locale
-SQLALCHEMY_DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./portfolio.db")
+DATABASE_URL_ENV = os.environ.get("DATABASE_URL")
+if not DATABASE_URL_ENV:
+    print(
+        "[database] ATTENZIONE: DATABASE_URL non impostata. "
+        "Uso il SQLite locale (backend/portfolio.db), che è un vecchio file "
+        "di test senza user_id. L'app reale usa Supabase: imposta DATABASE_URL "
+        "in backend/.env."
+    )
+SQLALCHEMY_DATABASE_URL = DATABASE_URL_ENV or "sqlite:///./portfolio.db"
 
 # SQLAlchemy 1.4+ vuole 'postgresql://' invece di 'postgres://'
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):

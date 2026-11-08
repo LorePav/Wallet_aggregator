@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
@@ -11,6 +11,12 @@ export const usePortfolioData = (uiState) => {
     const [benchmarkData, setBenchmarkData] = useState([]);
     const [sparklineData, setSparklineData] = useState({});
     const [assetHistory, setAssetHistory] = useState([]);
+
+    // True solo al primo caricamento: lo skeleton non deve "lampeggiare"
+    // durante i refresh successivi.
+    const hasLoadedRef = useRef(false);
+    // Contatore per ignorare risposte "vecchie" del deep-dive (race condition).
+    const historyRequestRef = useRef(0);
 
     const fetchSnapshots = useCallback(async () => {
         try {
@@ -53,39 +59,81 @@ export const usePortfolioData = (uiState) => {
         try {
             const res = await axios.get(`${API_URL}/api/asset-history/${symbol}?period=5d`);
             setSparklineData(prev => ({ ...prev, [symbol]: res.data }));
-        } catch (err) {
+        } catch {
             // Ignora errore per singolo asset
         }
     }, []);
 
+    // Sparkline in batch: una sola richiesta per tutti gli asset (no N+1).
+    const fetchSparklines = useCallback(async (symbols) => {
+        const unique = [...new Set((symbols || []).filter(Boolean))];
+        if (unique.length === 0) return;
+        try {
+            const res = await axios.get(`${API_URL}/api/sparklines`, {
+                params: { symbols: unique.join(','), period: '5d' }
+            });
+            if (res.data && typeof res.data === 'object') {
+                setSparklineData(prev => ({ ...prev, ...res.data }));
+            }
+        } catch (err) {
+            console.error("Errore fetch sparklines:", err);
+        }
+    }, []);
+
     const fetchAssetHistory = useCallback(async (symbol) => {
+        // Solo l'ultima richiesta può aggiornare lo stato: se l'utente apre
+        // rapidamente più asset, le risposte lente non sovrascrivono quelle nuove.
+        const requestId = ++historyRequestRef.current;
         try {
             const res = await axios.get(`${API_URL}/api/asset-history/${symbol}?period=1y`);
-            setAssetHistory(res.data);
+            if (requestId === historyRequestRef.current) setAssetHistory(res.data);
         } catch (err) {
             console.error("Errore fetch storico asset:", err);
-            setAssetHistory([]);
+            if (requestId === historyRequestRef.current) setAssetHistory([]);
         }
     }, []);
 
     const fetchPortfolio = useCallback(async () => {
-        uiState.setLoading(true);
+        const isFirstLoad = !hasLoadedRef.current;
+        if (isFirstLoad) uiState.setLoading(true);
         try {
             const res = await axios.get(`${API_URL}/api/portfolio`);
             setPortfolio(res.data);
+            hasLoadedRef.current = true;
             uiState.setLoading(false);
             uiState.setLastUpdated(new Date());
             fetchSnapshots();
-            res.data.forEach(item => {
-                if (!item.isLiquidity && item.category !== 'Liquidità') {
-                    fetchSparkline(item.symbol);
-                }
-            });
+            // Una sola chiamata batch per le sparkline di tutti gli asset
+            const symbols = [...new Set(res.data
+                .filter(item => !item.isLiquidity && item.category !== 'Liquidità')
+                .map(item => item.symbol))];
+            fetchSparklines(symbols);
         } catch (err) {
             console.error("Errore fetch portfolio", err);
             uiState.setLoading(false);
         }
-    }, [fetchSnapshots, fetchSparkline, uiState]);
+    }, [fetchSnapshots, fetchSparklines, uiState]);
+
+    // Aggiornamento manuale: salva lo snapshot di oggi (lato server) e usa i
+    // dati già calcolati nella risposta, senza rifare una seconda GET.
+    const refreshSnapshots = useCallback(async () => {
+        try {
+            const res = await axios.post(`${API_URL}/api/snapshots/refresh`);
+            if (res.data && Array.isArray(res.data.portfolio)) {
+                setPortfolio(res.data.portfolio);
+                hasLoadedRef.current = true;
+                uiState.setLoading(false);
+                uiState.setLastUpdated(new Date());
+                const symbols = [...new Set(res.data.portfolio
+                    .filter(item => !item.isLiquidity && item.category !== 'Liquidità')
+                    .map(item => item.symbol))];
+                fetchSparklines(symbols);
+            }
+            await fetchSnapshots();
+        } catch (err) {
+            console.error("Errore refresh snapshot:", err);
+        }
+    }, [fetchSnapshots, fetchSparklines, uiState]);
 
     const handleOpenDeepDive = useCallback((asset) => {
         if (asset.isLiquidity) return;
@@ -94,6 +142,7 @@ export const usePortfolioData = (uiState) => {
     }, [fetchAssetHistory, uiState]);
 
     const handleCloseDeepDive = useCallback(() => {
+        historyRequestRef.current++; // invalida eventuali risposte in volo
         uiState.setSelectedAsset(null);
         setAssetHistory([]);
     }, [uiState]);
@@ -111,27 +160,43 @@ export const usePortfolioData = (uiState) => {
     const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
         try {
-            if (uiState.formData.type !== 'Deposit' && uiState.formData.type !== 'Withdrawal') {
-                try {
-                    await axios.post(`${API_URL}/api/assets`, {
-                        symbol: uiState.formData.symbol.toUpperCase(),
-                        name: uiState.formData.name || uiState.formData.symbol.toUpperCase(),
-                        category: uiState.formData.category,
-                        currency: uiState.formData.currency
-                    });
-                } catch (assetErr) { /* asset già esiste */ }
+            const type = uiState.formData.type;
+            const isCash = type === 'Deposit' || type === 'Withdrawal';
+            const isIncome = type === 'Dividend' || type === 'Farming DeFi';
+            const symbol = uiState.formData.symbol.toUpperCase();
+
+            // Registriamo l'asset solo per acquisti/vendite. Dividendi e farming
+            // si collegano a un asset già esistente e non devono ricrearlo o
+            // modificarne categoria/valuta.
+            if (!isCash && !isIncome) {
+                const alreadyExists = portfolio.some(p => p.symbol === symbol);
+                if (!uiState.editingTxId || !alreadyExists) {
+                    try {
+                        await axios.post(`${API_URL}/api/assets`, {
+                            symbol,
+                            name: uiState.formData.name || symbol,
+                            category: uiState.formData.category,
+                            currency: uiState.formData.currency
+                        });
+                    } catch { /* asset già esiste */ }
+                }
             }
 
-            let q = parseFloat(uiState.formData.quantity);
-            let p = (uiState.formData.type === 'Dividend' || uiState.formData.type === 'Farming DeFi') ? 1 : parseFloat(uiState.formData.price);
-            let f = parseFloat(uiState.formData.fees) || 0;
+            const q = parseFloat(uiState.formData.quantity);
+            const p = isIncome ? 1 : parseFloat(uiState.formData.price);
+            const f = parseFloat(uiState.formData.fees) || 0;
+
+            // Per vendite e rendite le commissioni riducono l'importo netto;
+            // per acquisti e flussi di cassa si aggiungono al costo.
+            const gross = q * p;
+            const total = (type === 'Sell' || isIncome) ? gross - f : gross + f;
 
             const txData = {
                 date: uiState.formData.date,
-                type: uiState.formData.type,
-                symbol: uiState.formData.symbol.toUpperCase(),
+                type,
+                symbol,
                 quantity: q, price: p,
-                total: (q * p) + f,
+                total,
                 fees: f,
                 account: uiState.formData.account
             };
@@ -157,7 +222,7 @@ export const usePortfolioData = (uiState) => {
             alert("Errore di rete durante il salvataggio");
             console.error(err);
         }
-    }, [uiState, fetchPortfolio, fetchTransactions, fetchLiquidity]);
+    }, [uiState, portfolio, fetchPortfolio, fetchTransactions, fetchLiquidity]);
 
     const handleTransferSubmit = useCallback(async (e, transferData) => {
         e.preventDefault();
@@ -191,17 +256,22 @@ export const usePortfolioData = (uiState) => {
     }, [uiState, fetchPortfolio, fetchTransactions, fetchLiquidity]);
 
     const handleEditTransaction = useCallback((tx) => {
+        const isCash = tx.type === 'Deposit' || tx.type === 'Withdrawal';
+        // Recupera l'asset reale per non perdere categoria e valuta originali.
+        // Stesso simbolo può esistere su conti diversi: cerchiamo anche per conto.
+        const asset = portfolio.find(p => p.symbol === tx.symbol && (p.account || 'Default') === (tx.account || 'Default'));
         uiState.setFormData({
-            symbol: tx.symbol, name: '',
-            category: (tx.type === 'Deposit' || tx.type === 'Withdrawal') ? 'Liquidità' : 'Azioni',
-            currency: tx.currency || 'EUR',
+            symbol: tx.symbol,
+            name: asset?.name || '',
+            category: isCash ? 'Liquidità' : (asset?.category || 'Altro'),
+            currency: asset?.currency || tx.currency || 'EUR',
             date: tx.date, type: tx.type,
             quantity: tx.quantity, price: tx.price,
             fees: tx.fees, account: tx.account
         });
         uiState.setEditingTxId(tx.id);
         uiState.setIsModalOpen(true);
-    }, [uiState]);
+    }, [uiState, portfolio]);
 
     const handleDeleteTransaction = useCallback(async (txId) => {
         if (!window.confirm('Sei sicuro di voler eliminare questa transazione?')) return;
@@ -217,16 +287,18 @@ export const usePortfolioData = (uiState) => {
     }, [fetchPortfolio, fetchTransactions, fetchLiquidity]);
 
     const handleResetPortfolio = useCallback(async () => {
-        if (!window.confirm('⚠️ Sei sicuro? Tutti i dati verranno eliminati!')) return;
+        if (!window.confirm('⚠️ Sei sicuro? Tutti i dati verranno eliminati!')) return false;
         try {
             await axios.delete(`${API_URL}/api/reset`);
             setPortfolio([]);
             setTransactions([]);
             setLiquidity({});
             setSnapshots([]);
+            return true;
         } catch (err) {
             alert("Errore nel reset");
             console.error(err);
+            return false;
         }
     }, []);
 
@@ -234,6 +306,7 @@ export const usePortfolioData = (uiState) => {
         portfolio, transactions, liquidity, snapshots, benchmarkData,
         sparklineData, assetHistory,
         fetchPortfolio, fetchTransactions, fetchLiquidity, fetchSnapshots, fetchBenchmark,
+        fetchSparkline, fetchSparklines, refreshSnapshots,
         handleOpenDeepDive, handleCloseDeepDive,
         handleOpenAccountDeepDive, handleCloseAccountDeepDive,
         handleSubmit, handleTransferSubmit,

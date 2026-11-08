@@ -1,8 +1,38 @@
+import time
 import yfinance as yf
 import requests
-import requests
 
-def get_exchange_rates() -> dict[str, float]:
+
+# Cache in-memory dei tassi di cambio: evita di scaricare gli stessi FX
+# 2-3 volte per ogni caricamento della dashboard (portfolio + endpoint dedicato).
+_fx_cache: dict = {"ts": 0.0, "rates": None}
+_FX_CACHE_TTL = 300  # 5 minuti
+
+
+def _round_price(value: float) -> float:
+    """
+    Arrotonda un prezzo preservando i decimali significativi anche per asset
+    molto economici (es. crypto da 0.000012). Con round(..., 2) questi prezzi
+    diventavano 0.0 e l'asset veniva valutato zero.
+    """
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+    magnitude = abs(value)
+    if magnitude == 0:
+        return 0.0
+    if magnitude >= 1:
+        return round(value, 2)
+    if magnitude >= 0.01:
+        return round(value, 6)
+    if magnitude >= 0.0001:
+        return round(value, 8)
+    return round(value, 12)
+
+
+def get_exchange_rates(force: bool = False) -> dict[str, float]:
     """
     Recupera i tassi di cambio rispetto all'Euro (EUR).
     Restituisce un dizionario: { 'USD': 1.05, 'GBP': 0.85, ... } 
@@ -13,6 +43,10 @@ def get_exchange_rates() -> dict[str, float]:
     Noi restituiremo direttamente il tasso, quindi i prezzi andranno DIVISI per questo valore se la valuta è la base (es USD),
     o calcolati in modo coerente.
     """
+    now = time.time()
+    if not force and _fx_cache["rates"] is not None and now - _fx_cache["ts"] < _FX_CACHE_TTL:
+        return dict(_fx_cache["rates"])
+
     rates = {'EUR': 1.0}
     symbols = {
         'USD': 'EURUSD=X',
@@ -36,7 +70,9 @@ def get_exchange_rates() -> dict[str, float]:
         except Exception as e:
             print(f"Errore recupero tasso di cambio per {currency}: {e}")
             rates[currency] = 1.0 # In caso di errore fallisce "silenziosamente" con 1:1
-            
+
+    _fx_cache["rates"] = dict(rates)
+    _fx_cache["ts"] = now
     return rates
 
 def _get_live_price(import_symbol: str) -> float:
@@ -46,12 +82,12 @@ def _get_live_price(import_symbol: str) -> float:
         try:
             price = ticker.fast_info.last_price
             if price is not None and float(price) > 0:
-                return round(float(price), 2)
+                return _round_price(price)
         except Exception:
             pass
         hist = ticker.history(period="1d")
         if not hist.empty:
-            return round(float(hist['Close'].iloc[-1]), 2)
+            return _round_price(hist['Close'].iloc[-1])
     except Exception:
         pass
     return 0.0
@@ -102,7 +138,7 @@ def _try_fetch_history(import_symbol: str, period: str) -> list:
         ticker = yf.Ticker(import_symbol)
         hist = ticker.history(period=period)
         if not hist.empty:
-            return [{"date": date.strftime("%Y-%m-%d"), "price": round(float(row['Close']), 2)}
+            return [{"date": date.strftime("%Y-%m-%d"), "price": _round_price(row['Close'])}
                     for date, row in hist.iterrows()]
     except Exception:
         pass
@@ -153,8 +189,10 @@ def get_historical_prices(sym: str, period: str = "1y") -> list:
                 _yahoo_symbol_cache[sym] = candidate
                 return result
 
+    # NON salviamo in cache una risoluzione fallita: altrimenti un errore
+    # temporaneo di rete "avvelenerebbe" la cache e l'asset resterebbe senza
+    # prezzi per tutta la durata del processo.
     print(f"[finance] Nessun dato trovato per {sym} (period={period})")
-    _yahoo_symbol_cache[sym] = import_symbol  # Salva anche il fallback per non ritentare
     return []
 
 def search_tickers(query: str) -> list[dict]:

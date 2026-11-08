@@ -97,7 +97,7 @@ const formatCurrency = (num, decimals = 2) => {
 // TABS COMPONENTS
 // ==========================================
 
-const InfoTab = ({ info, symbol }) => {
+const InfoTab = ({ info }) => {
   const [expanded, setExpanded] = useState(false);
   const desc = info?.description?.it || info?.description?.en || '';
   const isEnglish = !info?.description?.it && !!info?.description?.en;
@@ -605,7 +605,7 @@ const PriceChart = ({ coinId }) => {
         const headers = await getAuthHeaders();
         const res = await axios.get(`${API_URL}/api/charts/crypto/${coinId}/ohlcv?interval=${interval}`, { headers });
         setData(res.data?.candles || []);
-      } catch (err) {
+      } catch {
         setError("Errore caricamento grafico prezzi");
       } finally {
         setLoading(false);
@@ -625,7 +625,7 @@ const PriceChart = ({ coinId }) => {
     return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
   };
 
-  const CustomTooltip = ({ active, payload, label }) => {
+  const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const d = payload[0].payload;
       return (

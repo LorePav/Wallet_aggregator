@@ -1,16 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, Bar, Scatter, ReferenceLine, PieChart, Pie, Cell, Tooltip, Line } from 'recharts';
 import { usePortfolioContext } from '../context/PortfolioContext';
 import PageTransition from '../components/PageTransition';
+import AssetIcon from '../components/AssetIcon';
 
 
 const Portfolio = () => {
   const ctx = usePortfolioContext();
   const [showHiddenPanel, setShowHiddenPanel] = useState(false);
+  // L'id unico dell'asset trascinato: con asset nascosti gli indici visivi
+  // non corrispondono a quelli dell'elenco completo.
+  const draggedIdRef = useRef(null);
 
   // Separa gli asset in visibili e nascosti (usando la key unica uniqueId)
-  const visiblePortfolio = ctx.sortedPortfolio.filter(item => !ctx.visuallyHiddenAssets[item.uniqueId]);
-  const hiddenPortfolio = ctx.sortedPortfolio.filter(item => ctx.visuallyHiddenAssets[item.uniqueId]);
+  // Le posizioni chiuse restano nel totale (per il guadagno realizzato) ma non
+  // vengono mostrate come righe del portafoglio corrente.
+  const activePortfolio = ctx.sortedPortfolio.filter(item => !item.is_closed);
+  const visiblePortfolio = activePortfolio.filter(item => !ctx.visuallyHiddenAssets[item.uniqueId]);
+  const hiddenPortfolio = activePortfolio.filter(item => ctx.visuallyHiddenAssets[item.uniqueId]);
 
   return (
     <PageTransition>
@@ -63,12 +70,13 @@ const Portfolio = () => {
                         key={item.uniqueId}
                         draggable={true}
                         onDragStart={(e) => {
+                          draggedIdRef.current = item.uniqueId;
                           ctx.setDraggedItemIdx(index);
                           e.dataTransfer.effectAllowed = "move";
                           if (ctx.sortConfig.key !== 'manual') {
                             const currentOrder = ctx.sortedPortfolio.map(p => p.uniqueId);
                             ctx.setCustomAssetOrder(currentOrder);
-                            setSortConfig({ key: 'manual', direction: 'ascending' });
+                            ctx.setSortConfig({ key: 'manual', direction: 'ascending' });
                           }
                         }}
                         onDragEnter={(e) => {
@@ -82,20 +90,26 @@ const Portfolio = () => {
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={(e) => {
                           e.preventDefault();
-                          if (ctx.draggedItemIdx !== null && ctx.dragOverItemIdx !== null && ctx.draggedItemIdx !== ctx.dragOverItemIdx) {
+                          const draggedId = draggedIdRef.current;
+                          const targetId = item.uniqueId;
+                          if (draggedId && targetId && draggedId !== targetId) {
                             const newOrder = [...ctx.sortedPortfolio];
-                            const draggedItem = newOrder.splice(ctx.draggedItemIdx, 1)[0];
-                            newOrder.splice(ctx.dragOverItemIdx, 0, draggedItem);
-
-                            // Assicuriamoci che non ci siano undefined o rotture, e salviamo array di uniqueId
-                            const newIdOrder = newOrder.map(p => p?.uniqueId).filter(Boolean);
-                            ctx.setCustomAssetOrder(newIdOrder);
-                            localStorage.setItem('customAssetOrder', JSON.stringify(newIdOrder));
+                            const fromIdx = newOrder.findIndex(p => p.uniqueId === draggedId);
+                            const toIdx = newOrder.findIndex(p => p.uniqueId === targetId);
+                            if (fromIdx !== -1 && toIdx !== -1) {
+                              const [moved] = newOrder.splice(fromIdx, 1);
+                              newOrder.splice(toIdx, 0, moved);
+                              const newIdOrder = newOrder.map(p => p?.uniqueId).filter(Boolean);
+                              ctx.setCustomAssetOrder(newIdOrder);
+                              localStorage.setItem('customAssetOrder', JSON.stringify(newIdOrder));
+                            }
                           }
+                          draggedIdRef.current = null;
                           ctx.setDraggedItemIdx(null);
                           ctx.setDragOverItemIdx(null);
                         }}
-                        onDragEnd={(e) => {
+                        onDragEnd={() => {
+                          draggedIdRef.current = null;
                           ctx.setDraggedItemIdx(null);
                           ctx.setDragOverItemIdx(null);
                           setTimeout(() => ctx.setDragInteraction({ isDragging: false, isClicking: false }), 50);
@@ -128,6 +142,8 @@ const Portfolio = () => {
                             <span style={{ cursor: 'grab', color: 'rgba(255,255,255,0.2)', fontSize: '1.2rem', paddingRight: '4px', userSelect: 'none' }}>⋮⋮</span>
                             <button
                               onClick={(e) => { e.stopPropagation(); ctx.toggleVisualHiddenAsset(item.uniqueId); }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onMouseUp={(e) => e.stopPropagation()}
                               style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '0 4px', fontSize: '1rem', opacity: 0.6 }}
                               title="Nascondi dalla lista"
                             >
@@ -135,33 +151,12 @@ const Portfolio = () => {
                             </button>
 
                             {/* ASSET LOGO */}
-                            <div style={{
-                              width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              backgroundColor: item.isLiquidity ? 'rgba(16, 185, 129, 0.2)' : 'var(--surface-hover)',
-                              border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0
-                            }}>
-                              {item.isLiquidity ? (
-                                <span style={{ fontSize: '1.2rem' }}>💵</span>
-                              ) : (
-                                item.category === 'Crypto' ? (
-                                  <img src={`https://assets.coincap.io/assets/icons/${item.symbol.toLowerCase()}@2x.png`}
-                                    alt={item.symbol}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                    onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
-                                ) : (
-                                  <img src={`https://logo.clearbit.com/${item.name.split(' ')[0].toLowerCase()}.com`}
-                                    alt={item.symbol}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                    onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
-                                )
-                              )}
-                              {/* Fallback in caso l'immagine fallisca (hidden finchè img non errora) */}
-                              {!item.isLiquidity && (
-                                <div style={{ display: 'none', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 'bold', color: 'var(--accent)' }}>
-                                  {ctx.getInitials(item.symbol)}
-                                </div>
-                              )}
-                            </div>
+                            <AssetIcon
+                              symbol={item.symbol}
+                              name={item.name}
+                              category={item.category}
+                              size={36}
+                            />
 
                             <div>
                               <div style={{ fontWeight: '600', fontSize: '1.1rem' }}>{item.symbol}</div>
@@ -224,14 +219,14 @@ const Portfolio = () => {
                       </tr>
                     );
                   })}
-                  {visiblePortfolio.length === 0 && ctx.combinedPortfolio.length > 0 && (
+                  {visiblePortfolio.length === 0 && activePortfolio.length > 0 && (
                     <tr>
                       <td colSpan="9" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
                         Tutti gli asset sono attualmente nascosti.
                       </td>
                     </tr>
                   )}
-                  {ctx.combinedPortfolio.length === 0 && (
+                  {activePortfolio.length === 0 && (
                     <tr>
                       <td colSpan="9" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
                         Nessun asset inserito in portafoglio
@@ -257,6 +252,7 @@ const Portfolio = () => {
                       <div key={item.uniqueId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                           <span style={{ fontSize: '1.2rem', opacity: 0.5 }}>✕</span>
+                          <AssetIcon symbol={item.symbol} name={item.name} category={item.category} size={24} />
                           <strong style={{ color: 'var(--text-secondary)' }}>{item.symbol}</strong>
                           <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{item.name}</span>
                         </div>

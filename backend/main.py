@@ -3,6 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
 import requests
 import os
 
@@ -11,11 +12,25 @@ import schemas
 import portfolio
 from database import SessionLocal, engine
 
+# ==============================================================================
+# AILYST — Importa i modelli PRIMA di create_all
+# Così le tabelle Ailyst vengono create insieme alle altre al primo avvio
+# ==============================================================================
+import ailyst_models  # noqa: F401 — registra i modelli Ailyst con Base
+from ailyst_router import ailyst_router, start_ailyst_scheduler
+
+# Crea TUTTE le tabelle (esistenti + Ailyst) in un'unica operazione
 models.Base.metadata.create_all(bind=engine)
 
 security = HTTPBearer()
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://awyfpccnnbwfxumjzenc.supabase.co")
-SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "sb_publishable_UCTWV4dBLfdkHC0sB2_M0g_A0Q_hATC")
+# Le credenziali Supabase vivono solo in backend/.env: niente fallback scritti
+# nel codice. Se mancano, l'app si ferma subito con un messaggio chiaro.
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
+if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+    raise RuntimeError(
+        "SUPABASE_URL e SUPABASE_ANON_KEY sono obbligatorie: inseriscile in backend/.env"
+    )
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
@@ -23,7 +38,17 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
         "apikey": SUPABASE_ANON_KEY,
         "Authorization": f"Bearer {token}"
     }
-    response = requests.get(f"{SUPABASE_URL}/auth/v1/user", headers=headers)
+    try:
+        response = requests.get(
+            f"{SUPABASE_URL}/auth/v1/user",
+            headers=headers,
+            timeout=5,
+        )
+    except requests.RequestException:
+        raise HTTPException(
+            status_code=503,
+            detail="Servizio di autenticazione non raggiungibile",
+        )
     if response.status_code != 200:
         raise HTTPException(
             status_code=401,
@@ -31,15 +56,72 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
         )
     return response.json()
 
-app = FastAPI(title="Portfolio API", dependencies=[Depends(verify_token)])
+app = FastAPI(title="Portfolio API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    # Origini consentite: in locale il frontend gira su Vite (5173) o sulla
+    # preview (4173). Se in futuro l'app viene pubblicata, basta impostare
+    # CORS_ORIGINS in backend/.env con l'elenco separato da virgole.
+    allow_origins=[
+        origin.strip()
+        for origin in os.environ.get(
+            "CORS_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173,"
+            "http://localhost:4173,http://127.0.0.1:4173",
+        ).split(",")
+        if origin.strip()
+    ],
+    # L'autenticazione avviene via header Authorization (Bearer), non via cookie:
+    # non serve allow_credentials=True.
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Registra tutti gli endpoint /api/ailyst/* (il router Ailyst gestisce la propria auth)
+# Nota: exclude_dependencies evita di applicare il verify_token globale due volte
+app.include_router(ailyst_router, dependencies=[])
+
+def _update_all_daily_snapshots():
+    """Aggiorna lo snapshot di oggi per tutti gli utenti (operazione bloccante)."""
+    import finance
+    fx_rates = finance.get_exchange_rates()
+    db = SessionLocal()
+    try:
+        user_rows = db.query(models.Transaction.user_id).distinct().all()
+        for (uid,) in user_rows:
+            if not uid:
+                continue
+            try:
+                portfolio_data = portfolio.get_portfolio_data(db, uid, fx_rates=fx_rates)
+                liquidity_data = portfolio.get_liquidity(db, uid)
+                portfolio.update_daily_snapshot(
+                    db, portfolio_data, liquidity_data, uid, fx_rates=fx_rates
+                )
+            except Exception as e:
+                print(f"[snapshots] Errore utente {uid}: {e}")
+                db.rollback()
+    finally:
+        db.close()
+
+
+async def _snapshot_scheduler():
+    """Job giornaliero (con recupero all'avvio) per gli snapshot storici."""
+    await asyncio.sleep(15)  # lascia finire l'avvio del server
+    while True:
+        try:
+            await asyncio.to_thread(_update_all_daily_snapshots)
+        except Exception as e:
+            print(f"[snapshots] Errore job: {e}")
+        await asyncio.sleep(6 * 60 * 60)  # ricontrolla ogni 6 ore
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Avvia gli scheduler all'avvio del server."""
+    start_ailyst_scheduler()
+    asyncio.create_task(_snapshot_scheduler())
 
 def get_db():
     db = SessionLocal()
@@ -51,6 +133,29 @@ def get_db():
 @app.get("/")
 def read_root():
     return {"message": "Motore del Portafoglio Attivo e Funzionante!"}
+
+CASH_SYMBOLS = {"EUR", "USD", "GBP", "CHF", "JPY"}
+
+def _delete_orphan_asset(db: Session, user_id: str, symbol: str):
+    """
+    Elimina un asset rimasto senza transazioni.
+
+    Serve a non lasciare "fantasmi" nel database dopo la cancellazione
+    dell'ultima transazione di un asset. Le valute di cassa non vengono
+    toccate: non sono asset di portafoglio.
+    """
+    if not symbol or symbol.upper() in CASH_SYMBOLS:
+        return
+    remaining = db.query(models.Transaction).filter(
+        models.Transaction.user_id == user_id,
+        models.Transaction.symbol == symbol,
+    ).count()
+    if remaining == 0:
+        db.query(models.Asset).filter(
+            models.Asset.user_id == user_id,
+            models.Asset.symbol == symbol,
+        ).delete()
+        db.commit()
 
 # --- ENDPOINTS TRANSAZIONI ---
 @app.get("/api/transactions", response_model=List[schemas.Transaction])
@@ -89,6 +194,7 @@ def update_transaction(transaction_id: int, transaction: schemas.TransactionCrea
     if not db_transaction:
         raise HTTPException(status_code=404, detail="Transazione non trovata")
     
+    old_symbol = db_transaction.symbol
     tx_data = transaction.model_dump(exclude={"currency", "user_id"})
     for key, value in tx_data.items():
         if key != "user_id": # eviteremo di sovrascriverlo per errore
@@ -96,6 +202,12 @@ def update_transaction(transaction_id: int, transaction: schemas.TransactionCrea
         
     db.commit()
     db.refresh(db_transaction)
+
+    # Se la modifica ha cambiato simbolo, il vecchio asset potrebbe essere
+    # rimasto senza transazioni: in quel caso lo eliminiamo.
+    if old_symbol and old_symbol != db_transaction.symbol:
+        _delete_orphan_asset(db, user_id, old_symbol)
+
     return db_transaction
 
 @app.delete("/api/transactions/{transaction_id}")
@@ -105,13 +217,15 @@ def delete_transaction(transaction_id: int, db: Session = Depends(get_db), user_
     if not db_transaction:
         raise HTTPException(status_code=404, detail="Transazione non trovata")
     
+    symbol = db_transaction.symbol
     db.delete(db_transaction)
     db.commit()
+    _delete_orphan_asset(db, user_id, symbol)
     return {"message": "Transazione eliminata con successo"}
 
 # --- ENDPOINTS ASSET ---
 @app.get("/api/search-tickers")
-def api_search_tickers(q: str):
+def api_search_tickers(q: str, user_data: dict = Depends(verify_token)):
     import finance
     return finance.search_tickers(q)
 
@@ -124,16 +238,25 @@ def read_assets(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), 
 @app.post("/api/assets", response_model=schemas.Asset)
 def create_asset(asset: schemas.AssetCreate, db: Session = Depends(get_db), user_data: dict = Depends(verify_token)):
     user_id = user_data["id"]
-    db_asset = db.query(models.Asset).filter(models.Asset.symbol == asset.symbol, models.Asset.user_id == user_id).first()
+    symbol = (asset.symbol or "").strip()
+    if not symbol:
+        raise HTTPException(status_code=400, detail="Il simbolo dell'asset è obbligatorio")
+
+    db_asset = db.query(models.Asset).filter(models.Asset.symbol == symbol, models.Asset.user_id == user_id).first()
     if db_asset:
-        if db_asset.currency != asset.currency or db_asset.category != asset.category:
-            db_asset.currency = asset.currency
-            db_asset.category = asset.category
+        # Non sovrascriviamo categoria/valuta di un asset esistente: creare o
+        # modificare una transazione non deve riclassificare l'asset. Aggiorniamo
+        # solo il nome se arriva un valore nuovo (es. dopo la creazione di un
+        # asset rimasto orfano).
+        new_name = (asset.name or "").strip()
+        if new_name and new_name != db_asset.name:
+            db_asset.name = new_name
             db.commit()
             db.refresh(db_asset)
         return db_asset
     
     db_asset = models.Asset(**asset.model_dump())
+    db_asset.symbol = symbol
     db_asset.user_id = user_id
     db.add(db_asset)
     db.commit()
@@ -144,11 +267,13 @@ def create_asset(asset: schemas.AssetCreate, db: Session = Depends(get_db), user
 @app.get("/api/portfolio", response_model=List[schemas.PortfolioItem])
 def read_portfolio(db: Session = Depends(get_db), user_data: dict = Depends(verify_token)):
     user_id = user_data["id"]
-    portfolio_data = portfolio.get_portfolio_data(db, user_id)
-    
-    liquidity_data = portfolio.get_liquidity(db, user_id)
-    portfolio.update_daily_snapshot(db, portfolio_data, liquidity_data, user_id)
-    
+
+    # I tassi FX vengono scaricati una sola volta e riutilizzati per tutti i
+    # calcoli interni (la GET è di sola lettura: nessuna scrittura sul DB).
+    import finance
+    fx_rates = finance.get_exchange_rates()
+    portfolio_data = portfolio.get_portfolio_data(db, user_id, fx_rates=fx_rates)
+
     return portfolio_data
 
 @app.get("/api/liquidity")
@@ -157,7 +282,7 @@ def read_liquidity(db: Session = Depends(get_db), user_data: dict = Depends(veri
     return portfolio.get_liquidity(db, user_id)
 
 @app.get("/api/fx_rates")
-def read_fx_rates():
+def read_fx_rates(user_data: dict = Depends(verify_token)):
     import finance
     return finance.get_exchange_rates()
 
@@ -167,17 +292,50 @@ def read_snapshots(db: Session = Depends(get_db), user_data: dict = Depends(veri
     user_id = user_data["id"]
     return db.query(models.DailySnapshot).filter(models.DailySnapshot.user_id == user_id).order_by(models.DailySnapshot.date).all()
 
+# Lo snapshot di oggi viene salvato solo su richiesta esplicita (o dal job
+# giornaliero): le GET non devono più scrivere sul database.
+@app.post("/api/snapshots/refresh")
+def refresh_today_snapshot(db: Session = Depends(get_db), user_data: dict = Depends(verify_token)):
+    user_id = user_data["id"]
+    import finance
+    fx_rates = finance.get_exchange_rates()
+    portfolio_data = portfolio.get_portfolio_data(db, user_id, fx_rates=fx_rates)
+    liquidity_data = portfolio.get_liquidity(db, user_id)
+    portfolio.update_daily_snapshot(db, portfolio_data, liquidity_data, user_id, fx_rates=fx_rates)
+    return {"message": "Snapshot di oggi aggiornato", "portfolio": portfolio_data}
+
 # --- ENDPOINTS ASSET HISTORY ---
 @app.get("/api/asset-history/{symbol}")
-def read_asset_history(symbol: str, period: str = "1y", db: Session = Depends(get_db)):
+def read_asset_history(symbol: str, period: str = "1y", db: Session = Depends(get_db), user_data: dict = Depends(verify_token)):
     import finance
     history = finance.get_historical_prices(symbol, period)
     if not history:
         raise HTTPException(status_code=404, detail="Dati storici non trovati per questo simbolo.")
     return history
 
+# Sparkline in batch: una sola richiesta per N asset (evita N+1 chiamate).
+@app.get("/api/sparklines")
+def read_sparklines(symbols: str, period: str = "5d", user_data: dict = Depends(verify_token)):
+    import finance
+    from concurrent.futures import ThreadPoolExecutor
+
+    tickers = [s.strip() for s in symbols.split(",") if s.strip()][:50]
+    if not tickers:
+        return {}
+
+    result = {}
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = {executor.submit(finance.get_historical_prices, s, period): s for s in tickers}
+        for future in futures:
+            sym = futures[future]
+            try:
+                result[sym] = future.result(timeout=30)
+            except Exception:
+                result[sym] = []
+    return result
+
 @app.get("/api/benchmark")
-def read_benchmark_history(period: str = "5y"):
+def read_benchmark_history(period: str = "5y", user_data: dict = Depends(verify_token)):
     import finance
     history = finance.get_historical_prices("^GSPC", period)
     if not history:
@@ -237,7 +395,7 @@ def read_portfolio_drawdown(
     ).order_by(models.DailySnapshot.date).all()
 
     snap_list = [
-        {"date": str(s.date), "total_value": s.total_value}
+        {"date": str(s.date), "total_value": s.total_value, "total_invested": s.total_invested}
         for s in snapshots
     ]
 
@@ -263,7 +421,7 @@ def read_risk_metrics(
     ).order_by(models.DailySnapshot.date).all()
 
     snap_list = [
-        {"date": str(s.date), "total_value": s.total_value}
+        {"date": str(s.date), "total_value": s.total_value, "total_invested": s.total_invested}
         for s in snapshots
     ]
 
@@ -1192,6 +1350,338 @@ def get_tokenomics_exchanges(coin_id: str, user_data: dict = Depends(verify_toke
 
 
 # ----------------------------------------------------------
+# STATS COMPLETE (panel sinistro CoinGecko-style)
+# GET /api/tokenomics/{coin_id}/stats
+# Prezzo, MC, FDV, TVL, supply, ATH/ATL, variazioni temporali,
+# sentiment. Tutto il necessario per il pannello sinistro.
+# ----------------------------------------------------------
+@app.get("/api/tokenomics/{coin_id}/stats")
+def get_tokenomics_stats(coin_id: str, user_data: dict = Depends(verify_token)):
+    import crypto_fetcher as cf
+    cid  = coin_id.strip().lower()
+    data = _get_cached_coin_data(cid)
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"Coin '{cid}' non trovata.")
+
+    md  = data.get("market_data", {})
+    sg  = cf.safe_nested
+    fln = cf.format_large_number
+
+    # TVL può essere un dict {"usd": ..., "btc": ...} oppure None
+    tvl_raw = md.get("total_value_locked")
+    tvl_usd = tvl_raw.get("usd") if isinstance(tvl_raw, dict) else tvl_raw
+
+    return {
+        "coin_id":          cid,
+        "name":             data.get("name"),
+        "symbol":           (data.get("symbol") or "").upper(),
+        "image":            data.get("image", {}).get("large"),
+        "market_cap_rank":  data.get("market_cap_rank"),
+        "price": {
+            "usd":            sg(md, "current_price", "usd"),
+            "btc":            sg(md, "current_price", "btc"),
+            "change_24h_pct": sg(md, "price_change_percentage_24h"),
+            "change_24h_abs": sg(md, "price_change_24h"),
+            "high_24h":       sg(md, "high_24h", "usd"),
+            "low_24h":        sg(md, "low_24h", "usd"),
+        },
+        "market_cap": {
+            "value":          sg(md, "market_cap", "usd"),
+            "formatted":      fln(sg(md, "market_cap", "usd")),
+            "change_24h_pct": sg(md, "market_cap_change_percentage_24h"),
+        },
+        "fdv": {
+            "value":     sg(md, "fully_diluted_valuation", "usd"),
+            "formatted": fln(sg(md, "fully_diluted_valuation", "usd")),
+        },
+        "volume_24h": {
+            "value":     sg(md, "total_volume", "usd"),
+            "formatted": fln(sg(md, "total_volume", "usd")),
+        },
+        "tvl": {
+            "value":     tvl_usd,
+            "formatted": fln(tvl_usd),
+        },
+        "mcap_to_tvl": md.get("mcap_to_tvl_ratio"),
+        "fdv_to_tvl":  md.get("fdv_to_tvl_ratio"),
+        "supply": {
+            "circulating":            sg(md, "circulating_supply"),
+            "total":                  sg(md, "total_supply"),
+            "max":                    sg(md, "max_supply"),
+            "circulating_formatted":  fln(sg(md, "circulating_supply")),
+            "total_formatted":        fln(sg(md, "total_supply")),
+            "max_formatted":          fln(sg(md, "max_supply")) if sg(md, "max_supply") else "Illimitato",
+        },
+        "ath": {
+            "usd":        sg(md, "ath", "usd"),
+            "date":       sg(md, "ath_date", "usd"),
+            "change_pct": sg(md, "ath_change_percentage", "usd"),
+        },
+        "atl": {
+            "usd":        sg(md, "atl", "usd"),
+            "date":       sg(md, "atl_date", "usd"),
+            "change_pct": sg(md, "atl_change_percentage", "usd"),
+        },
+        "price_changes": {
+            "1h":  sg(md, "price_change_percentage_1h_in_currency", "usd"),
+            "24h": sg(md, "price_change_percentage_24h"),
+            "7d":  sg(md, "price_change_percentage_7d"),
+            "14d": sg(md, "price_change_percentage_14d"),
+            "30d": sg(md, "price_change_percentage_30d"),
+            "1y":  sg(md, "price_change_percentage_1y"),
+        },
+        "sentiment": {
+            "up_pct":   data.get("sentiment_votes_up_percentage"),
+            "down_pct": data.get("sentiment_votes_down_percentage"),
+        },
+        "coingecko_score":  data.get("coingecko_score"),
+        "watchlist_users":  data.get("watchlist_portfolio_users"),
+    }
+
+
+# ----------------------------------------------------------
+# INFO COIN (sezione Info pannello sinistro)
+# GET /api/tokenomics/{coin_id}/info
+# Link, contratti, descrizione, community, categorie.
+# ----------------------------------------------------------
+@app.get("/api/tokenomics/{coin_id}/info")
+def get_tokenomics_info(coin_id: str, user_data: dict = Depends(verify_token)):
+    cid  = coin_id.strip().lower()
+    data = _get_cached_coin_data(cid)
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"Coin '{cid}' non trovata.")
+
+    links = data.get("links", {})
+
+    def _first(lst):
+        return next((x for x in (lst or []) if x), None)
+
+    # Contratti su blockchain (platforms)
+    contracts = [
+        {"chain": chain, "address": addr}
+        for chain, addr in (data.get("platforms") or {}).items()
+        if addr
+    ]
+
+    # Block explorer: filtra URL vuoti
+    explorers = [x for x in (links.get("blockchain_site") or []) if x]
+
+    return {
+        "coin_id":     cid,
+        "name":        data.get("name"),
+        "symbol":      (data.get("symbol") or "").upper(),
+        "image":       data.get("image", {}).get("large"),
+        "genesis_date": data.get("genesis_date"),
+        "categories":  data.get("categories", []),
+        "description": {
+            "it": data.get("description", {}).get("it") or data.get("description", {}).get("en", ""),
+            "en": data.get("description", {}).get("en", ""),
+        },
+        "links": {
+            "website":   _first(links.get("homepage")),
+            "whitepaper": _first(links.get("whitepaper")) if links.get("whitepaper") and isinstance(links.get("whitepaper"), list) else links.get("whitepaper"),
+            "explorers": explorers[:5],
+            "github":    _first((links.get("repos_url") or {}).get("github")),
+            "twitter":   links.get("twitter_screen_name") or None,
+            "telegram":  links.get("telegram_channel_identifier") or None,
+            "reddit":    links.get("subreddit_url") or None,
+            "discord":   _first(links.get("chat_url")),
+            "medium":    links.get("medium_user") or None,
+        },
+        "contracts":   contracts,
+        "platform":    data.get("asset_platform_id"),
+        "coingecko_id": cid,
+    }
+
+
+# ----------------------------------------------------------
+# TOKENOMICS ALLOCATION (tab Tokenomics)
+# GET /api/tokenomics/{coin_id}/allocation
+# Distribuzione supply, dati ICO. Vesting dettagliato
+# richiede provider terzi (TokenUnlocks/Messari).
+# ----------------------------------------------------------
+@app.get("/api/tokenomics/{coin_id}/allocation")
+def get_tokenomics_allocation(coin_id: str, user_data: dict = Depends(verify_token)):
+    import crypto_fetcher as cf
+    cid  = coin_id.strip().lower()
+    data = _get_cached_coin_data(cid)
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"Coin '{cid}' non trovata.")
+
+    md  = data.get("market_data", {})
+    sg  = cf.safe_nested
+    fln = cf.format_large_number
+
+    circ  = sg(md, "circulating_supply") or 0
+    total = sg(md, "total_supply") or 0
+    max_s = sg(md, "max_supply")
+    locked = max(0.0, total - circ) if total else 0.0
+
+    # Chart donut: circolante vs bloccato
+    allocation_chart = []
+    if circ > 0:
+        allocation_chart.append({"label": "In Circolazione", "value": circ, "formatted": fln(circ)})
+    if locked > 0:
+        allocation_chart.append({"label": "Non in Circolazione", "value": locked, "formatted": fln(locked)})
+
+    # Dati ICO (disponibili solo per alcuni token storici)
+    ico_raw = data.get("ico_data") or {}
+    ico_info = None
+    if ico_raw:
+        ico_info = {
+            "start_date":      ico_raw.get("ico_start_date"),
+            "end_date":        ico_raw.get("ico_end_date"),
+            "raised_usd":      ico_raw.get("usd_raised"),
+            "raised_formatted": fln(ico_raw.get("usd_raised")),
+            "total_tokens_sold": ico_raw.get("total_raised"),
+        }
+
+    return {
+        "coin_id": cid,
+        "name":    data.get("name"),
+        "symbol":  (data.get("symbol") or "").upper(),
+        "supply": {
+            "circulating":           circ,
+            "total":                 total,
+            "max":                   max_s,
+            "circulating_formatted": fln(circ) if circ else "N/D",
+            "total_formatted":       fln(total) if total else "N/D",
+            "max_formatted":         fln(max_s) if max_s else "Illimitato",
+            "circ_pct_of_total": round(circ / total * 100, 2) if total and circ else None,
+            "circ_pct_of_max":   round(circ / max_s * 100, 2) if max_s and circ else None,
+        },
+        "allocation_chart": allocation_chart,
+        "ico_data": ico_info,
+        "vesting_note": "Dati vesting e allocazione dettagliata richiedono un provider terzo (TokenUnlocks/Messari).",
+    }
+
+
+# ----------------------------------------------------------
+# NEWS PER COIN
+# GET /api/tokenomics/{coin_id}/news?hours=48&limit=20
+# News filtrate per simbolo/nome del token via DB Ailyst.
+# Fallback: fetch RSS live se il DB è vuoto.
+# ----------------------------------------------------------
+@app.get("/api/tokenomics/{coin_id}/news")
+def get_tokenomics_news(
+    coin_id: str,
+    hours: int = 48,
+    limit: int = 20,
+    user_data: dict = Depends(verify_token),
+    db: Session = Depends(get_db),
+):
+    import ailyst_news as an
+
+    cid  = coin_id.strip().lower()
+    data = _get_cached_coin_data(cid)
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"Coin '{cid}' non trovata.")
+
+    symbol     = (data.get("symbol") or "").upper()
+    name_lower = (data.get("name") or coin_id).lower()
+
+    # Cerca nel DB per simbolo (es. "BTC")
+    news = an.get_recent_news(db, hours=hours, asset_filter=symbol, limit=limit)
+
+    # Integra con notizie dal DB filtrate per nome (evita duplicati)
+    if len(news) < limit:
+        broader = an.get_recent_news(db, hours=72, limit=50)
+        seen_ids = {n["id"] for n in news}
+        for n in broader:
+            if n["id"] not in seen_ids:
+                text = (n["title"] + " " + n["summary"]).lower()
+                if name_lower in text or symbol.lower() in text:
+                    news.append(n)
+                    seen_ids.add(n["id"])
+                    if len(news) >= limit:
+                        break
+
+    # Fallback live RSS se il DB non ha notizie recenti
+    if not news:
+        live = an.fetch_rss_feeds(watchlist_symbols=[symbol])
+        live.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
+        news = [
+            {
+                "title":           a["title"],
+                "summary":         a["summary"],
+                "source":          a["source"],
+                "url":             a["url"],
+                "sentiment_score": a["sentiment_score"],
+                "sentiment_label": an._sentiment_label(a["sentiment_score"]),
+                "relevance_score": a["relevance_score"],
+                "published_at":    a["published_at"].isoformat() if hasattr(a["published_at"], "isoformat") else str(a["published_at"]),
+            }
+            for a in live[:limit]
+        ]
+
+    return {"coin_id": cid, "symbol": symbol, "news": news[:limit]}
+
+
+# ----------------------------------------------------------
+# DATI FINANZIARI (fees/revenue da DeFiLlama)
+# GET /api/tokenomics/{coin_id}/financial?slug=hyperliquid
+# slug: override identificativo DeFiLlama (opzionale).
+# Disponibile solo per protocolli DeFi indicizzati su DeFiLlama.
+# ----------------------------------------------------------
+@app.get("/api/tokenomics/{coin_id}/financial")
+def get_tokenomics_financial(
+    coin_id: str,
+    slug: str = None,
+    user_data: dict = Depends(verify_token),
+):
+    import crypto_fetcher as cf
+    cid        = coin_id.strip().lower()
+    llama_slug = (slug or cid).strip().lower()
+
+    raw = cf.fetch_defi_fees(llama_slug)
+    if raw is None:
+        return {
+            "coin_id":   cid,
+            "available": False,
+            "message":   f"Dati finanziari non disponibili per '{llama_slug}' su DeFiLlama. "
+                         "Passa ?slug=<nome-protocollo-defillama> per specificare il nome corretto.",
+        }
+
+    total_fees_24h    = raw.get("total24h")
+    # Controlla esplicitamente None per non saltare valori reali di 0
+    _rev = raw.get("totalRevenue24h")
+    total_revenue_24h = _rev if _rev is not None else raw.get("totalProtocolRevenue24h")
+
+    # Estrai serie storica per il grafico
+    chart_raw = raw.get("totalDataChartBreakdown") or raw.get("totalDataChart") or []
+    chart_fees = []
+    chart_revenue = []
+
+    for entry in chart_raw:
+        if not (isinstance(entry, (list, tuple)) and len(entry) >= 2):
+            continue
+        ts  = entry[0]          # timestamp Unix in secondi
+        val = entry[1]
+        fees_val = sum(val.values()) if isinstance(val, dict) else (val or 0)
+        chart_fees.append({"timestamp": ts * 1000, "value": round(fees_val, 2)})
+
+    # Revenue separata se disponibile
+    rev_raw = raw.get("totalRevenueChart") or []
+    for entry in rev_raw:
+        if isinstance(entry, (list, tuple)) and len(entry) >= 2:
+            chart_revenue.append({"timestamp": entry[0] * 1000, "value": round(entry[1] or 0, 2)})
+
+    return {
+        "coin_id":   cid,
+        "protocol":  raw.get("name"),
+        "available": True,
+        "summary": {
+            "fees_24h":    total_fees_24h,
+            "revenue_24h": total_revenue_24h,
+            "fees_all_time": raw.get("totalAllTime"),
+        },
+        "chart_fees":    chart_fees[-90:],
+        "chart_revenue": chart_revenue[-90:] if chart_revenue else chart_fees[-90:],
+        "methodology":   raw.get("methodology"),
+    }
+
+
+# ----------------------------------------------------------
 # ESPORTA PDF
 # GET /api/tokenomics/{coin_id}/export/pdf
 # ----------------------------------------------------------
@@ -1237,6 +1727,54 @@ def export_tokenomics_word(coin_id: str, user_data: dict = Depends(verify_token)
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f'attachment; filename="tokenomics_{symbol}.docx"'},
     )
+
+
+# ============================================================
+# CHART ENDPOINT — CRYPTO OHLCV (grafico a candele)
+# GET /api/charts/crypto/{coin_id}/ohlcv?interval=1h|4h|1d|1w|1mo
+#
+# Granularità reale CoinGecko (piano free):
+#   interval=1h  → days=1  → candele 30min  (~48 candele)
+#   interval=4h  → days=14 → candele 4H     (~84 candele)
+#   interval=1d  → days=90 → candele 4H     (90 giorni)
+#   interval=1w  → days=365 → candele 4-day (1 anno)
+#   interval=1mo → days=730 → candele 4-day (2 anni)
+# ============================================================
+
+_OHLCV_INTERVAL_DAYS: dict = {
+    "1h":  1,
+    "4h":  14,
+    "1d":  90,
+    "1w":  365,
+    "1mo": 730,
+}
+
+
+@app.get("/api/charts/crypto/{coin_id}/ohlcv")
+def get_crypto_ohlcv(
+    coin_id: str,
+    interval: str = "1d",
+    user_data: dict = Depends(verify_token),
+):
+    import crypto_fetcher as cf
+    cid = coin_id.strip().lower()
+    if interval not in _OHLCV_INTERVAL_DAYS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Intervallo non valido. Usa: {', '.join(_OHLCV_INTERVAL_DAYS)}",
+        )
+    days = _OHLCV_INTERVAL_DAYS[interval]
+    try:
+        candles = cf.fetch_ohlcv(cid, days)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Errore OHLCV per '{cid}': {str(e)}")
+
+    return {
+        "coin_id":  cid,
+        "interval": interval,
+        "days":     days,
+        "candles":  candles,
+    }
 
 
 # --- ENDPOINT ANALISTA DI MERCATO ---

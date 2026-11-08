@@ -5,6 +5,8 @@ import RiskMetricsWidget from '../components/RiskMetricsWidget';
 import DrawdownChart from '../components/DrawdownChart';
 import CorrelationHeatmap from '../components/CorrelationHeatmap';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+
 const Analytics = () => {
   const [period, setPeriod] = useState('1y');
   
@@ -17,21 +19,19 @@ const Analytics = () => {
   const [correlationData, setCorrelationData] = useState(null);
   const [isCorrelationLoading, setIsCorrelationLoading] = useState(true);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-
   useEffect(() => {
     const fetchAnalytics = async () => {
-      // Drawdown (non dipende dal periodo)
-      if (drawdownData.length === 0) {
-        setIsDrawdownLoading(true);
-        try {
-          const resDrop = await axios.get(`${API_URL}/api/analytics/drawdown`);
-          setDrawdownData(resDrop.data);
-        } catch (error) {
-          console.error("Errore fetch drawdown:", error);
-        } finally {
-          setIsDrawdownLoading(false);
-        }
+      // Drawdown: dipende dagli snapshot, non dal periodo. Lo richiediamo a
+      // ogni cambio periodo per evitare di mostrare dati vecchi.
+      setIsDrawdownLoading(true);
+      try {
+        const resDrop = await axios.get(`${API_URL}/api/analytics/drawdown`);
+        setDrawdownData(resDrop.data);
+      } catch (error) {
+        console.error("Errore fetch drawdown:", error);
+        setDrawdownData([]);
+      } finally {
+        setIsDrawdownLoading(false);
       }
 
       // Metriche (dipendono dal periodo)
@@ -53,13 +53,15 @@ const Analytics = () => {
         setCorrelationData(resCorr.data);
       } catch (error) {
         console.error("Errore fetch correlation:", error);
+        // Non lasciamo visibile la matrice del periodo precedente.
+        setCorrelationData(null);
       } finally {
         setIsCorrelationLoading(false);
       }
     };
 
     fetchAnalytics();
-  }, [period]); // Rifetch quando cambia il periodo (drawdown viene saltato se già c'è)
+  }, [period]);
 
   return (
     <PageTransition>

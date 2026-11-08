@@ -20,14 +20,23 @@ const App = () => {
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    // 1. Recupera la sessione iniziale
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        axios.defaults.headers.common['Authorization'] = `Bearer ${session.access_token}`;
-      }
-      setIsInitializing(false);
-    });
+    // 1. Recupera la sessione iniziale.
+    // In caso di errore (rete/Supabase giù) mostriamo il login invece di
+    // lasciare l'app bloccata sullo schermo bianco.
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        if (session) {
+          axios.defaults.headers.common['Authorization'] = `Bearer ${session.access_token}`;
+        }
+      })
+      .catch((err) => {
+        console.error("Impossibile recuperare la sessione Supabase:", err);
+        setSession(null);
+      })
+      .finally(() => {
+        setIsInitializing(false);
+      });
 
     // 2. Ascolta i cambiamenti di autenticazione (login/logout/token refresh)
     const {

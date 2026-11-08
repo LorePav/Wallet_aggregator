@@ -44,6 +44,7 @@ class Transaction(TransactionBase):
 # ===== PORTFOLIO SCHEMAS =====
 class PortfolioItem(BaseModel):
     symbol: str
+    account: str = "Default"
     name: str
     category: str
     currency: str
@@ -61,6 +62,7 @@ class PortfolioItem(BaseModel):
     unrealized_gain_eur: float
     unrealized_gain_usd: float
     unrealized_gain_percent: float
+    is_closed: bool = False
 
 # ===== SNAPSHOT SCHEMAS =====
 class DailySnapshotBase(BaseModel):
