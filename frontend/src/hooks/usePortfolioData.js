@@ -198,7 +198,13 @@ export const usePortfolioData = (uiState) => {
                 quantity: q, price: p,
                 total,
                 fees: f,
-                account: uiState.formData.account
+                account: uiState.formData.account,
+                reward_currency: isIncome
+                    ? (uiState.formData.reward_currency || uiState.formData.currency || null)
+                    : null,
+                yield_percent: (type === 'Farming DeFi' && uiState.formData.yield_percent !== '')
+                    ? parseFloat(uiState.formData.yield_percent)
+                    : null
             };
 
             if (uiState.editingTxId) {
@@ -216,7 +222,8 @@ export const usePortfolioData = (uiState) => {
             uiState.setFormData({
                 ...uiState.formData,
                 symbol: '', name: '', category: 'Azioni',
-                quantity: '', price: '', fees: '0', type: 'Buy'
+                quantity: '', price: '', fees: '0', type: 'Buy',
+                reward_currency: '', yield_percent: ''
             });
         } catch (err) {
             alert("Errore di rete durante il salvataggio");
@@ -270,7 +277,9 @@ export const usePortfolioData = (uiState) => {
             currency: asset?.currency || tx.currency || 'EUR',
             date: tx.date, type: tx.type,
             quantity: tx.quantity, price: tx.price,
-            fees: tx.fees, account: tx.account
+            fees: tx.fees, account: tx.account,
+            reward_currency: tx.reward_currency || '',
+            yield_percent: tx.yield_percent != null ? String(tx.yield_percent) : ''
         });
         uiState.setEditingTxId(tx.id);
         uiState.setIsModalOpen(true);

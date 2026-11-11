@@ -106,7 +106,8 @@ export const useUIState = () => {
     const [formData, setFormData] = useState({
         symbol: '', name: '', category: 'Azioni', currency: 'EUR',
         date: new Date().toISOString().split('T')[0],
-        type: 'Buy', quantity: '', price: '', fees: '0', account: 'Broker'
+        type: 'Buy', quantity: '', price: '', fees: '0', account: 'Broker',
+        reward_currency: '', yield_percent: ''
     });
 
     // --- Handlers ---
@@ -193,6 +194,8 @@ export const useUIState = () => {
                     }
                     newFormData.name = '';
                     newFormData.price = '';
+                    newFormData.reward_currency = '';
+                    newFormData.yield_percent = '';
                 }
             }
         }

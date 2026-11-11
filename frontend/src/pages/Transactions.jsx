@@ -13,6 +13,8 @@ const TX_BADGE_MAP = {
   'Withdrawal':   { cls: 'tx-badge--with', label: 'Prelievo' },
 };
 
+const FIAT_CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'JPY'];
+
 const TxTypeBadge = ({ type }) => {
   const cfg = TX_BADGE_MAP[type] || { cls: 'tx-badge--other', label: type };
   return <span className={`tx-badge ${cfg.cls}`}>{cfg.label}</span>;
@@ -118,6 +120,8 @@ const Transactions = () => {
                   const c = tx.currency || 'EUR';
                   const sym = { 'EUR': '€', 'USD': '$', 'GBP': '£', 'JPY': '¥', 'CHF': 'CHF' }[c] || c + ' ';
                   const assetMeta = assetMetaBySymbol[tx.symbol];
+                  const isIncome = tx.type === 'Farming DeFi' || tx.type === 'Dividend';
+                  const rewardIsAsset = isIncome && tx.reward_currency && !FIAT_CURRENCIES.includes(tx.reward_currency);
                   return (
                     <tr key={tx.id}>
                       <td style={{ padding: '0.8rem' }}>{new Date(tx.date).toLocaleDateString('it-IT')}</td>
@@ -134,11 +138,21 @@ const Transactions = () => {
                           />
                           <span style={{ fontWeight: '600' }}>{tx.symbol}</span>
                         </div>
+                        {(tx.type === 'Farming DeFi' || tx.type === 'Dividend') && (tx.reward_currency || tx.yield_percent != null) && (
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '3px' }}>
+                            {tx.reward_currency ? `→ ${tx.reward_currency}` : ''}
+                            {tx.yield_percent != null ? ` · ${Number(tx.yield_percent).toLocaleString('it-IT')}% APR` : ''}
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: '0.8rem', fontWeight: '500' }}>{tx.quantity}</td>
                       <td style={{ padding: '0.8rem' }}>{sym}{(tx.price || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: (Math.abs(tx.price || 0) > 0 && Math.abs(tx.price || 0) < 1) ? 10 : 4 })}</td>
                       <td style={{ padding: '0.8rem' }}>{sym}{(tx.fees || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}</td>
-                      <td style={{ padding: '0.8rem', fontWeight: '600', color: 'white' }}>{sym}{(tx.total || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}</td>
+                      <td style={{ padding: '0.8rem', fontWeight: '600', color: 'white' }}>
+                        {rewardIsAsset
+                          ? `${(tx.total || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })} ${tx.reward_currency}`
+                          : `${sym}${(tx.total || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}`}
+                      </td>
                       <td style={{ padding: '0.8rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{tx.account || 'Default'}</td>
                       <td style={{ padding: '0.8rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <button

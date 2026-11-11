@@ -24,7 +24,12 @@ class Transaction(Base):
     price = Column(Float)
     total = Column(Float)
     fees = Column(Float, default=0.0)
-    account = Column(String)           
+    account = Column(String)
+    # Valuta in cui viene pagata la ricompensa (Dividend / Farming DeFi).
+    # Separata dall'asset collegato: es. farming su SOL con rendimento in USD.
+    reward_currency = Column(String, nullable=True)
+    # Percentuale di farming passivo (APR/APY), solo informativa.
+    yield_percent = Column(Float, nullable=True)
 
 class DailySnapshot(Base):
     __tablename__ = "daily_snapshots"

@@ -161,6 +161,15 @@ const Portfolio = () => {
                             <div>
                               <div style={{ fontWeight: '600', fontSize: '1.1rem' }}>{item.symbol}</div>
                               <div className="text-secondary" style={{ fontSize: '0.85rem' }}>{item.name}</div>
+                              {item.yield_percent != null && !item.isLiquidity && (
+                                <div style={{
+                                  display: 'inline-block', marginTop: '4px', padding: '2px 8px',
+                                  background: 'rgba(139, 92, 246, 0.18)', color: '#a78bfa',
+                                  borderRadius: '10px', fontSize: '0.72rem', fontWeight: '600'
+                                }}>
+                                  🌾 {Number(item.yield_percent).toLocaleString('it-IT')}% APR
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>

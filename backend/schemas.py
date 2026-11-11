@@ -31,6 +31,8 @@ class TransactionBase(BaseModel):
     fees: Optional[float] = 0.0
     account: str
     currency: Optional[str] = "EUR"
+    reward_currency: Optional[str] = None
+    yield_percent: Optional[float] = None
 
 class TransactionCreate(TransactionBase):
     pass
@@ -63,6 +65,7 @@ class PortfolioItem(BaseModel):
     unrealized_gain_usd: float
     unrealized_gain_percent: float
     is_closed: bool = False
+    yield_percent: Optional[float] = None
 
 # ===== SNAPSHOT SCHEMAS =====
 class DailySnapshotBase(BaseModel):

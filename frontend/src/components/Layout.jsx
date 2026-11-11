@@ -6,6 +6,10 @@ import Sidebar from './Sidebar';
 import { usePortfolioContext } from '../context/PortfolioContext';
 import GlobalModals from './GlobalModals';
 
+// Valute di cassa: selezionabili come "Asset Collegato" per i farming/dividendi
+// quando si mette a rendere la liquidità stessa (es. USD → USD).
+const FIAT_CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'JPY'];
+
 const Layout = () => {
   const {
     isModalOpen, setIsModalOpen,
@@ -19,6 +23,9 @@ const Layout = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+
+  // Il rendimento è un asset (es. SOL) oppure una valuta (es. USD)?
+  const rewardIsAsset = formData.reward_currency && !FIAT_CURRENCIES.includes(formData.reward_currency);
 
   useEffect(() => {
     if (!searchTerm || searchTerm.length < 2) {
@@ -98,16 +105,20 @@ const Layout = () => {
   };
 
   // Dividendi e Farming: il simbolo deve essere un asset esistente, così il
-  // guadagno realizzato viene attribuito all'asset corretto.
+  // guadagno realizzato viene attribuito all'asset corretto. In alternativa
+  // si può scegliere una valuta di cassa (es. USD) per "farmare USD → USD":
+  // in quel caso il guadagno va solo in liquidità, non a un asset.
   const handleIncomeAssetChange = (e) => {
     const symbol = e.target.value;
-    const asset = combinedPortfolio.find(i => !i.isLiquidity && i.symbol === symbol);
+    const isFiat = FIAT_CURRENCIES.includes(symbol);
+    const asset = !isFiat ? combinedPortfolio.find(i => !i.isLiquidity && i.symbol === symbol) : null;
     setFormData(prev => ({
       ...prev,
       symbol,
       name: asset?.name || '',
-      category: asset?.category || prev.category,
-      currency: asset?.currency || prev.currency
+      category: asset?.category || (isFiat ? 'Liquidità' : prev.category),
+      currency: isFiat ? symbol : (asset?.currency || prev.currency),
+      reward_currency: isFiat ? symbol : (asset?.currency || prev.reward_currency || '')
     }));
   };
 
@@ -163,18 +174,65 @@ const Layout = () => {
                       </select>
                     </div>
                   ) : (formData.type === 'Dividend' || formData.type === 'Farming DeFi') ? (
-                    <div className="form-group">
-                      <label>Asset Collegato <span style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>*</span></label>
-                      <select className="form-control" name="symbol" value={formData.symbol} onChange={handleIncomeAssetChange} required>
-                        <option value="">Seleziona un asset del portafoglio...</option>
-                        {combinedPortfolio.filter(i => !i.isLiquidity && !['EUR', 'USD', 'GBP', 'JPY', 'CHF'].includes(i.symbol)).map(i => (
-                          <option key={i.uniqueId} value={i.symbol}>{i.symbol} — {i.name}</option>
-                        ))}
-                      </select>
-                      <span className="text-secondary" style={{ fontSize: '0.8rem', marginTop: '6px', display: 'block' }}>
-                        Il guadagno viene attribuito a questo asset e accreditato nella sua valuta.
-                      </span>
-                    </div>
+                    <>
+                      <div className="form-group">
+                        <label>Asset Collegato <span style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>*</span></label>
+                        <select className="form-control" name="symbol" value={formData.symbol} onChange={handleIncomeAssetChange} required>
+                          <option value="">Seleziona un asset o una valuta...</option>
+                          <optgroup label="Asset del portafoglio">
+                            {combinedPortfolio.filter(i => !i.isLiquidity && !FIAT_CURRENCIES.includes(i.symbol)).map(i => (
+                              <option key={i.uniqueId} value={i.symbol}>{i.symbol} — {i.name}</option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Valute (cassa)">
+                            {FIAT_CURRENCIES.map(c => (
+                              <option key={c} value={c}>{c} — Liquidità {c}</option>
+                            ))}
+                          </optgroup>
+                        </select>
+                        <span className="text-secondary" style={{ fontSize: '0.8rem', marginTop: '6px', display: 'block' }}>
+                          Il guadagno viene attribuito all'asset scelto, oppure alla cassa se selezioni una valuta.
+                        </span>
+                      </div>
+                      <div className="form-group">
+                        <label>Rendimento in</label>
+                        <select className="form-control" name="reward_currency" value={formData.reward_currency} onChange={handleInputChange}>
+                          <option value="">— valuta dell'asset —</option>
+                          <optgroup label="Valute">
+                            <option value="EUR">Euro (€)</option>
+                            <option value="USD">Dollaro ($)</option>
+                            <option value="GBP">Sterlina (£)</option>
+                            <option value="CHF">Franco (CHF)</option>
+                            <option value="JPY">Yen (¥)</option>
+                          </optgroup>
+                          <optgroup label="Asset del portafoglio">
+                            {combinedPortfolio.filter(i => !i.isLiquidity && !FIAT_CURRENCIES.includes(i.symbol)).map(i => (
+                              <option key={i.uniqueId} value={i.symbol}>{i.symbol} — {i.name}</option>
+                            ))}
+                          </optgroup>
+                        </select>
+                        <span className="text-secondary" style={{ fontSize: '0.8rem', marginTop: '6px', display: 'block' }}>
+                          La valuta o l'asset in cui ti viene pagata la ricompensa (es. SOL → USD, oppure SOL → SOL).
+                        </span>
+                      </div>
+                      {formData.type === 'Farming DeFi' && (
+                        <div className="form-group">
+                          <label>Rendimento Passivo % (APR/APY)</label>
+                          <input
+                            type="number"
+                            step="any"
+                            className="form-control"
+                            name="yield_percent"
+                            value={formData.yield_percent}
+                            onChange={handleInputChange}
+                            placeholder="es. 5.2"
+                          />
+                          <span className="text-secondary" style={{ fontSize: '0.8rem', marginTop: '6px', display: 'block' }}>
+                            Solo informativo: la percentuale annua stimata di questa posizione.
+                          </span>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <>
                       <div className="form-group" style={{ position: 'relative' }}>
@@ -254,7 +312,7 @@ const Layout = () => {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>{(formData.type === 'Dividend' || formData.type === 'Farming DeFi') ? 'Importo Ottenuto' : 'Quantità'}</label>
+                    <label>{(formData.type === 'Dividend' || formData.type === 'Farming DeFi') ? (rewardIsAsset ? `Quantità ricevuta (in ${formData.reward_currency})` : 'Importo Ottenuto') : 'Quantità'}</label>
                     <input type="number" step="any" className="form-control" name="quantity" value={formData.quantity} onChange={handleInputChange} required />
                   </div>
 

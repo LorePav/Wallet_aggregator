@@ -2,7 +2,25 @@ from sqlalchemy.orm import Session
 import models
 import datetime
 
+# Valute di cassa: non sono asset di portafoglio. Quando un'operazione di
+# rendita (Dividend/Farming) è collegata a una di queste, il guadagno va
+# esclusivamente in liquidità e non crea asset fantasma.
+CASH_SYMBOLS = {"EUR", "USD", "GBP", "CHF", "JPY"}
+
+
+def _convert_currency(amount: float, from_curr: str, to_curr: str, fx_rates: dict) -> float:
+    """Converte un importo da from_curr a to_curr usando i tassi rispetto all'EUR."""
+    if not from_curr or not to_curr or from_curr == to_curr:
+        return amount
+    eur = amount / (fx_rates.get(from_curr, 1.0) or 1.0)
+    return eur * (fx_rates.get(to_curr, 1.0) or 1.0)
+
+
 def get_portfolio_data(db: Session, user_id: str, fx_rates: dict = None):
+    if fx_rates is None:
+        import finance
+        fx_rates = finance.get_exchange_rates()
+
     transactions = db.query(models.Transaction).filter(models.Transaction.user_id == user_id).order_by(models.Transaction.date).all()
     assets = db.query(models.Asset).filter(models.Asset.user_id == user_id).all()
 
@@ -18,6 +36,12 @@ def get_portfolio_data(db: Session, user_id: str, fx_rates: dict = None):
         account = t.account or "Default"
         key = (symbol, account)
 
+        # Le rendite (Dividend/Farming) collegate a una valuta di cassa
+        # (es. farming su USD per avere USD) non creano un asset nel
+        # portafoglio: vanno solo ad accrescere la liquidità del conto.
+        if t.type in ("Dividend", "Farming DeFi") and symbol.upper() in CASH_SYMBOLS:
+            continue
+
         if key not in portfolio_dict:
             asset_info = asset_map.get(symbol)
             portfolio_dict[key] = {
@@ -29,7 +53,8 @@ def get_portfolio_data(db: Session, user_id: str, fx_rates: dict = None):
                 "quantity": 0.0,
                 "total_invested": 0.0,
                 "realized_gain": 0.0,
-                "pmc": 0.0
+                "pmc": 0.0,
+                "yield_percent": None
             }
 
         p = portfolio_dict[key]
@@ -54,7 +79,39 @@ def get_portfolio_data(db: Session, user_id: str, fx_rates: dict = None):
                     p["total_invested"] = 0.0
 
         elif t.type in ("Dividend", "Farming DeFi"):
-            p["realized_gain"] += t.total
+            reward_curr = (t.reward_currency or p["currency"] or "EUR").upper()
+
+            if reward_curr in CASH_SYMBOLS:
+                # Rendimento in valuta: guadagno realizzato (convertito nella
+                # valuta dell'asset) + cassa nella valuta del rendimento.
+                gain = _convert_currency(t.total, reward_curr, p["currency"], fx_rates)
+                p["realized_gain"] += gain
+            else:
+                # Rendimento in asset (compound, es. SOL -> SOL): aumenta la
+                # quantità della posizione del token ricevuto. Nessun guadagno
+                # realizzato né cassa: il valore emerge come guadagno non
+                # realizzato (quantità x prezzo) finché non si vende.
+                reward_key = (reward_curr, account)
+                if reward_key not in portfolio_dict:
+                    asset_info = asset_map.get(reward_curr)
+                    portfolio_dict[reward_key] = {
+                        "symbol": reward_curr,
+                        "account": account,
+                        "name": asset_info.name if asset_info else "Sconosciuto",
+                        "category": asset_info.category if asset_info else "Altro",
+                        "currency": asset_info.currency if asset_info else "EUR",
+                        "quantity": 0.0,
+                        "total_invested": 0.0,
+                        "realized_gain": 0.0,
+                        "pmc": 0.0,
+                        "yield_percent": None
+                    }
+                portfolio_dict[reward_key]["quantity"] += t.total
+
+            # L'ultima percentuale di farming indicata diventa quella "corrente"
+            # dell'asset collegato (le transazioni sono ordinate per data).
+            if t.yield_percent is not None:
+                p["yield_percent"] = t.yield_percent
 
     # Fase 2: Recupero prezzi live (una sola volta per simbolo)
     # Evitiamo di scaricare prezzi per la categoria Farming
@@ -177,6 +234,18 @@ def get_liquidity(db: Session, user_id: str):
         if t.type in ["Deposit", "Withdrawal"]:
             # Per i flussi di cassa il simbolo è direttamente la valuta
             currency = t.symbol.upper()
+        elif t.type in ["Dividend", "Farming DeFi"]:
+            # Per dividendi/farming la ricompensa è espressa nella valuta
+            # indicata (reward_currency); se assente si ripiega sulla valuta
+            # dell'asset (comportamento precedente).
+            if t.reward_currency:
+                currency = t.reward_currency.upper()
+            else:
+                asset = asset_map.get(t.symbol)
+                if acc.upper() in ["TRADE REP", "TRADE REPUBLIC", "SCALABLE", "SCALABLE CAPITAL", "DIRECTA"]:
+                    currency = "EUR"
+                else:
+                    currency = asset.currency if asset else "EUR"
         else:
             asset = asset_map.get(t.symbol)
             if acc.upper() in ["TRADE REP", "TRADE REPUBLIC", "SCALABLE", "SCALABLE CAPITAL", "DIRECTA"]:
@@ -200,7 +269,11 @@ def get_liquidity(db: Session, user_id: str):
             cash_gained = (t.quantity * t.price) - (t.fees or 0.0)
             liquidity_by_account_currency[key] += cash_gained
         elif t.type in ["Dividend", "Farming DeFi"]:
-            # Per i dividendi/farming, accresce direttamente la liquidità indicata
-            liquidity_by_account_currency[key] += t.total
+            # Solo i rendimenti in valuta accrescono la liquidità di cassa.
+            # I rendimenti in asset (compound, es. SOL -> SOL) aumentano la
+            # quantità del token, non la cassa: qui non vanno accreditati.
+            reward_curr = (t.reward_currency or "").upper()
+            if reward_curr in CASH_SYMBOLS:
+                liquidity_by_account_currency[key] += t.total
             
     return {k: round(v, 2) for k, v in liquidity_by_account_currency.items()}

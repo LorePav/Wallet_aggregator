@@ -23,6 +23,38 @@ from ailyst_router import ailyst_router, start_ailyst_scheduler
 # Crea TUTTE le tabelle (esistenti + Ailyst) in un'unica operazione
 models.Base.metadata.create_all(bind=engine)
 
+
+def _run_migrations():
+    """
+    Aggiunge colonne mancanti alle tabelle esistenti.
+
+    `create_all` crea solo le tabelle assenti: non aggiorna quelle già
+    presenti nel DB (SQLite e Postgres). Qui aggiungiamo le colonne nuove
+    (es. reward_currency, yield_percent) se non esistono già.
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    if "transactions" not in inspector.get_table_names():
+        return
+
+    existing = {c["name"] for c in inspector.get_columns("transactions")}
+    columns_to_add = {
+        "reward_currency": "VARCHAR",
+        "yield_percent": "FLOAT",
+    }
+
+    with engine.begin() as conn:
+        for col, col_type in columns_to_add.items():
+            if col not in existing:
+                conn.execute(
+                    text(f"ALTER TABLE transactions ADD COLUMN {col} {col_type}")
+                )
+                print(f"[migrations] Aggiunta colonna transactions.{col}")
+
+
+_run_migrations()
+
 security = HTTPBearer()
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
