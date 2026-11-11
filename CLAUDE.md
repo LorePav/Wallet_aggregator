@@ -3,6 +3,7 @@
 > **Versione**: 1.0  
 > **Stack**: FastAPI (Backend) + React/Vite (Frontend)  
 > **Ambiente dev**: `start_app.bat` → Backend: `:8000` | Frontend: `:5173`  
+> **Documentazione**: `README.md` (panoramica, setup, variabili d'ambiente, deploy)  
 
 ## 🛠️ 1. Stack Tecnologico & Convenzioni di Codice
 - **Backend**: Python 3.10+, FastAPI, Uvicorn (`--reload`), Pydantic v2, SQLAlchemy/SQLModel, async/await nativo.
@@ -49,10 +50,10 @@
 | `"Genera un report PDF delle mie posizioni per la dichiarazione fiscale"` | Estrae solo dati aggregati, applica template standard, esporta senza chiavi/seed. | `"✅ Report generato. Contiene solo importi, date, chain. Nessun dato sensibile incluso. Scarica qui: [link]` |
 
 ## 🤖 6. Istruzioni Operative per Claude/Agent
-- ✅ Prima di modificare codice: leggi `ARCHITECTURE.md`, `SECURITY.md` e questo file.
+- ✅ Prima di modificare codice: leggi `README.md` e questo file.
 - ✅ Usa sempre type-safe responses, evita `any` in TS o `dict` non tipato in Python.
 - ✅ Testa localmente con `python -m uvicorn main:app --reload` e `npm run dev`.
-- ✅ Documenta ogni nuova feature in `ROADMAP.md` con `[ ] → [x]`.
+- ✅ Documenta ogni nuova feature nel `README.md` (sezioni Funzionalità/Note) o negli appunti `note.txt` / `task e idee.txt`.
 - 🛑 Se una richiesta viola sicurezza, compliance o etica: rispondi con `[⚠️ VIOLAZIONE SICUREZZA/COMPLIANCE]` + spiegazione breve + alternativa sicura.
 - 🔄 Mantieni coerenza con lo stile esistente. Non riscrivere interi moduli senza approvazione.
 
